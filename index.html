@@ -136,6 +136,7 @@ label{display:grid;gap:5px;font-size:14px;color:var(--muted)}
 /* sheet / dialog */
 .overlay{position:fixed;inset:0;z-index:40;background:var(--scrim);display:flex;align-items:flex-end;justify-content:center}
 .sheet{background:var(--bg);width:100%;max-width:560px;border-radius:22px 22px 0 0;padding:10px 18px calc(18px + var(--bottom));display:grid;gap:14px;max-height:90vh;overflow:auto}
+.sheet>*{min-width:0}
 .sheet .grab{width:36px;height:4px;border-radius:9px;background:var(--line);justify-self:center}
 .sheet h2{margin:0;font-size:18px}
 @media (min-width:700px){.overlay{align-items:center}.sheet{border-radius:22px}.sheet .grab{display:none}}
@@ -187,6 +188,7 @@ label{display:grid;gap:5px;font-size:14px;color:var(--muted)}
   <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
   <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
   <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
   <symbol id="i-install" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
 </svg>
@@ -249,7 +251,14 @@ label{display:grid;gap:5px;font-size:14px;color:var(--muted)}
               <label>Upload preset (Unsigned) <input id="cloudPreset" placeholder="jaise: dryfu_upload" autocomplete="off"></label>
             </div>
             <p class="hint">Sync ke liye Cloudinary → Settings → Security → "Restricted image types" mein <b>Resource list</b> ka tick hatayein.</p>
-          </div>
+            <div style="display:grid;gap:10px;border-top:1px solid var(--line);padding-top:12px">
+              <b style="color:var(--ink)">Naam / category badalna aur delete (optional)</b>
+              <div class="row">
+                <label>API Key <input id="apiKey" placeholder="jaise: 123456789012345" autocomplete="off"></label>
+                <label>API Secret <input id="apiSecret" type="password" placeholder="••••••••" autocomplete="off"></label>
+              </div>
+              <p class="hint">Cloudinary → Settings → <b>API Keys</b> se milegi. Ye sirf isi device mein save hoti hai, GitHub par nahi jaati. ⚠️ API Secret kisi ko na dikhayein.</p>
+            </div>
           <div id="imgbbFields" hidden style="display:grid;gap:8px">
             <label>ImgBB API key <input id="imgbbKey" type="password" placeholder="api.imgbb.com se key"></label>
           </div>
@@ -265,7 +274,8 @@ label{display:grid;gap:5px;font-size:14px;color:var(--muted)}
               <p class="hint">Mobile ke camera se QR scan kijiye ya ye link mobile par kholiye. Settings apne aap aa jayengi.</p>
               <div class="url" id="shareLink"></div>
               <div class="row"><button class="pillbtn" id="copyLink" type="button">Link copy</button><button class="pillbtn" id="copyCode" type="button">Setup code copy</button></div>
-              <p class="hint">⚠️ Ye link sirf apne devices par use karein.</p>
+              <label class="row" style="color:var(--ink);gap:8px;flex-wrap:nowrap" id="secretOptWrap"><input type="checkbox" id="shareSecret" style="width:auto"> Edit/Delete permission (API Secret) bhi is link mein bhejein</label>
+              <p class="hint">⚠️ Ye link sirf apne devices par use karein, kisi ko forward na karein.</p>
             </div>
           </div>
         </div>
@@ -305,9 +315,29 @@ label{display:grid;gap:5px;font-size:14px;color:var(--muted)}
       <input id="category" placeholder="Ya nayi category likhiye" autocomplete="off">
     </div>
     <label>Photo ka naam (optional) <input id="photoName" placeholder="jaise: kaju-w240-500g" autocomplete="off"></label>
+    <label style="display:flex;gap:10px;align-items:flex-start;color:var(--ink)"><input id="keepOriginal" type="checkbox" checked style="width:auto;margin-top:3px"><span>Original quality (koi badlav nahi) <span class="hint" style="display:block">Tick hatayenge to photo chhoti hokar (max 2000px) 5–10 guna tez upload hogi, lekin thodi quality kam hogi.</span></span></label>
     <div class="actions">
       <button class="pillbtn" id="upCancel" type="button">Cancel</button>
       <button class="pillbtn primary" id="upGo" type="button">Upload</button>
+    </div>
+  </div>
+</div>
+
+<!-- edit sheet -->
+<div class="overlay" id="editSheet" hidden style="z-index:55">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="edTitle">
+    <div class="grab"></div>
+    <h2 id="edTitle">Naam aur category badlein</h2>
+    <label>Photo ka naam (search mein isi se milegi) <input id="edName" autocomplete="off"></label>
+    <div>
+      <label for="edCat">Category</label>
+      <div class="chips" id="edChips" style="padding-top:8px"></div>
+      <input id="edCat" placeholder="Ya nayi category likhiye" autocomplete="off">
+    </div>
+    <p class="hint">Photo ka link nahi badlega, isliye website par lagi photo chalti rahegi.</p>
+    <div class="actions">
+      <button class="pillbtn" id="edCancel" type="button">Cancel</button>
+      <button class="pillbtn primary" id="edSave" type="button">Save</button>
     </div>
   </div>
 </div>
@@ -324,6 +354,7 @@ label{display:grid;gap:5px;font-size:14px;color:var(--muted)}
     <button class="iconbtn vnav next" id="vNext" title="Agli"><svg class="ico"><use href="#i-right"/></svg></button>
   </div>
   <div class="vbot">
+    <button class="vact" data-act="edit"><svg class="ico"><use href="#i-edit"/></svg>Edit</button>
     <button class="vact" data-act="url"><svg class="ico"><use href="#i-link"/></svg>Link copy</button>
     <button class="vact" data-act="html"><svg class="ico"><use href="#i-code"/></svg>HTML code</button>
     <button class="vact" data-act="open"><svg class="ico"><use href="#i-open"/></svg>Kholein</button>
@@ -345,7 +376,9 @@ const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } cat
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const slug = s => s.toLowerCase().replace(/\.[a-z0-9]+$/,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,60) || "photo";
 
-let settings = load(LS_SET, { provider: "cloudinary", imgbbKey: "", cloudName: "", cloudPreset: "" });
+let settings = load(LS_SET, { provider: "cloudinary", imgbbKey: "", cloudName: "", cloudPreset: "", apiKey: "", apiSecret: "" });
+const LS_OVR = "dryfu_overrides";
+let overrides = load(LS_OVR, {});
 let photos = load(LS_PHOTOS, []);
 let filterCat = "";
 let visible = [];   // photos currently shown (viewer navigation)
@@ -385,6 +418,7 @@ function isConfigured(){ return settings.provider === "imgbb" ? !!settings.imgbb
 function fillSettings(){
   $("#provider").value = settings.provider;
   $("#imgbbKey").value = settings.imgbbKey; $("#cloudName").value = settings.cloudName; $("#cloudPreset").value = settings.cloudPreset;
+  $("#apiKey").value = settings.apiKey || ""; $("#apiSecret").value = settings.apiSecret || "";
   toggleProvider();
 }
 function toggleProvider(){ const p = $("#provider").value; $("#imgbbFields").hidden = p !== "imgbb"; $("#cloudFields").hidden = p !== "cloudinary"; }
@@ -395,30 +429,36 @@ $("#saveSettings").addEventListener("click", () => {
     if (!applySetupCode(code)) return snack("Setup code sahi nahi hai");
     $("#setupCode").value = "";
   } else {
-    settings = { provider: $("#provider").value, imgbbKey: $("#imgbbKey").value.trim(), cloudName: $("#cloudName").value.trim(), cloudPreset: $("#cloudPreset").value.trim() };
+    settings = { provider: $("#provider").value, imgbbKey: $("#imgbbKey").value.trim(), cloudName: $("#cloudName").value.trim(), cloudPreset: $("#cloudPreset").value.trim(), apiKey: $("#apiKey").value.trim(), apiSecret: $("#apiSecret").value.trim() };
     save(LS_SET, settings);
   }
   fillSettings(); updateConn(); renderShare();
   if (isConfigured()) { snack("Save ho gaya ✔"); syncCloud(); location.hash = "#photos"; }
   else snack("Kuch fields khaali hain");
 });
-function setupCode(){ return "DRYFU-" + btoa(JSON.stringify({ c: settings.cloudName, p: settings.cloudPreset })); }
+function setupCode(){
+  const o = { c: settings.cloudName, p: settings.cloudPreset };
+  if ($("#shareSecret").checked && settings.apiKey && settings.apiSecret) { o.k = settings.apiKey; o.s = settings.apiSecret; }
+  return "DRYFU-" + btoa(JSON.stringify(o));
+}
 function applySetupCode(code){
   try {
     const o = JSON.parse(atob(decodeURIComponent(code).replace(/^DRYFU-/, "")));
     if (!o.c || !o.p) return false;
-    settings = { ...settings, provider: "cloudinary", cloudName: o.c, cloudPreset: o.p }; save(LS_SET, settings); return true;
+    settings = { ...settings, provider: "cloudinary", cloudName: o.c, cloudPreset: o.p, ...(o.k && o.s ? { apiKey: o.k, apiSecret: o.s } : {}) }; save(LS_SET, settings); return true;
   } catch { return false; }
 }
 function renderShare(){
   const card = $("#shareCard"); const show = isConfigured() && settings.provider === "cloudinary";
   card.hidden = !show; if (!show) return;
   const link = (location.protocol === "file:" ? APP_URL : location.origin + location.pathname) + "#setup=" + encodeURIComponent(setupCode());
+  $("#secretOptWrap").hidden = !(settings.apiKey && settings.apiSecret);
   if ($("#shareLink").textContent === link) return;
   $("#shareLink").textContent = link;
   const q = $("#qr"); q.innerHTML = "";
   if (window.QRCode) new QRCode(q, { text: link, width: 170, height: 170, correctLevel: QRCode.CorrectLevel.M }); else q.hidden = true;
 }
+$("#shareSecret").addEventListener("change", renderShare);
 $("#copyLink").addEventListener("click", () => copy($("#shareLink").textContent, "Link"));
 $("#copyCode").addEventListener("click", () => copy(setupCode(), "Setup code"));
 
@@ -452,6 +492,14 @@ async function syncCloud(quiet){
         date: x.created_at, width: x.width, height: x.height,
         url: base + "f_auto,q_auto/" + file, thumb: base + "c_fill,w_400,h_400,f_auto,q_auto/" + file, original: base + file };
     });
+    // abhi kiye gaye edit/delete Cloudinary list mein ~1 min baad dikhte hain, tab tak yahan se lagao
+    const now = Date.now();
+    for (const [k, v] of Object.entries(overrides)) if (now - v.t > 10*60*1000) delete overrides[k];
+    save(LS_OVR, overrides);
+    for (let i = cloud.length - 1; i >= 0; i--) {
+      const o = overrides[cloud[i].publicId]; if (!o) continue;
+      if (o.deleted) cloud.splice(i, 1); else Object.assign(cloud[i], { name: o.name, category: o.category });
+    }
     const seen = new Set(cloud.map(c => c.publicId));
     const recent = photos.filter(p => p.provider === "cloudinary" && p.publicId && !seen.has(p.publicId) && Date.now() - new Date(p.date) < 5*60*1000);
     const others = photos.filter(p => p.provider !== "cloudinary");
@@ -534,6 +582,7 @@ $("#vClose").addEventListener("click", closeViewer);
 $("#vPrev").addEventListener("click", () => step(-1));
 $("#vNext").addEventListener("click", () => step(1));
 document.addEventListener("keydown", e => {
+  if (!$("#editSheet").hidden) { if (e.key === "Escape") closeEdit(); return; }
   if (!$("#viewer").hidden) { if (e.key === "Escape") closeViewer(); if (e.key === "ArrowLeft") step(-1); if (e.key === "ArrowRight") step(1); }
   else if (!$("#uploadSheet").hidden && e.key === "Escape") closeSheet();
 });
@@ -544,16 +593,74 @@ function resetDel(){ const b = document.querySelector('.vact[data-act="del"]'); 
 document.querySelector(".vbot").addEventListener("click", e => {
   const b = e.target.closest(".vact"); if (!b) return; const p = visible[vIndex]; if (!p) return;
   const act = b.dataset.act;
+  if (act === "edit") return openEdit(p);
   if (act === "url") copy(p.url, "Link");
   if (act === "html") copy(`<img src="${p.url}" alt="${(p.category ? p.category + " - " : "") + p.name}" loading="lazy"${p.width ? ` width="${p.width}" height="${p.height}"` : ""}>`, "HTML code");
   if (act === "open") window.open(p.url, "_blank", "noopener");
   if (act === "del") {
-    if (p.provider === "cloudinary") { snack("Cloudinary Media Library mein delete karke Sync dabaiye"); window.open("https://console.cloudinary.com/console/media_library", "_blank", "noopener"); return; }
-    if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.querySelector("span").textContent = "Pakka?"; return; }
+    if (p.provider === "cloudinary" && !canSign()) { snack("Delete ke liye Settings mein API Key/Secret daaliye, ya Cloudinary Media Library se delete karein"); return; }
+    if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.querySelector("span").textContent = "Pakka? dobara dabayein"; return; }
+    if (p.provider === "cloudinary") {
+      b.querySelector("span").textContent = "Delete ho raha hai…";
+      signedCall("destroy", { public_id: p.publicId, invalidate: "true" }).then(() => {
+        overrides[p.publicId] = { deleted: true, t: Date.now() }; save(LS_OVR, overrides);
+        photos = photos.filter(x => x.id !== p.id); save(LS_PHOTOS, photos); render();
+        snack("Photo hamesha ke liye delete ho gayi"); closeViewer();
+      }).catch(e => { snack("Delete nahi hua: " + e.message); resetDel(); });
+      return;
+    }
     photos = photos.filter(x => x.id !== p.id); save(LS_PHOTOS, photos); render();
     if (p.deleteUrl) window.open(p.deleteUrl, "_blank", "noopener");
     snack("Hata diya"); closeViewer();
   }
+});
+
+// ---------- Cloudinary signed calls (edit / delete) ----------
+const canSign = () => settings.provider === "cloudinary" && settings.apiKey && settings.apiSecret;
+async function sha1(str){ const b = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(str)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2,"0")).join(""); }
+async function signedCall(endpoint, params){
+  params = { ...params, timestamp: Math.floor(Date.now()/1000) };
+  const toSign = Object.keys(params).sort().map(k => `${k.replace("[]","")}=${params[k]}`).join("&");
+  const fd = new FormData();
+  Object.entries(params).forEach(([k,v]) => fd.append(k, v));
+  fd.append("api_key", settings.apiKey);
+  fd.append("signature", await sha1(toSign + settings.apiSecret));
+  const r = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(settings.cloudName)}/image/${endpoint}`, { method:"POST", body:fd });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.error) throw new Error(j?.error?.message || ("Cloudinary error " + r.status));
+  return j;
+}
+const clean = v => String(v || "").replace(/[|=]/g, " ").trim();
+
+// ---------- edit ----------
+let editing = null;
+function openEdit(p){
+  if (p.provider === "cloudinary" && !canSign()) { snack("Edit ke liye Settings mein API Key aur Secret daaliye"); closeViewer(); location.hash = "#settings"; return; }
+  editing = p;
+  $("#edName").value = p.name; $("#edCat").value = p.category || "";
+  const all = [...new Set([...categories().map(c => c[0]).filter(c => c !== "Bina category"), "Badam","Kaju","Pista","Akhrot","Kishmish","Gift Box","Banner"])];
+  $("#edChips").innerHTML = all.map(c => `<button class="chip" type="button" data-c="${esc(c)}" aria-pressed="${p.category === c}">${esc(c)}</button>`).join("");
+  $("#editSheet").hidden = false; setTimeout(() => $("#edName").focus(), 50);
+}
+const closeEdit = () => { $("#editSheet").hidden = true; editing = null; };
+$("#edChips").addEventListener("click", e => { const c = e.target.closest(".chip"); if (!c) return; const on = c.getAttribute("aria-pressed") !== "true"; $("#edCat").value = on ? c.dataset.c : ""; $("#edChips").querySelectorAll(".chip").forEach(x => x.setAttribute("aria-pressed", x === c && on)); });
+$("#edCat").addEventListener("input", () => $("#edChips").querySelectorAll(".chip").forEach(x => x.setAttribute("aria-pressed", x.dataset.c === $("#edCat").value.trim())));
+$("#edCancel").addEventListener("click", closeEdit);
+$("#editSheet").addEventListener("click", e => { if (e.target.id === "editSheet") closeEdit(); });
+$("#edSave").addEventListener("click", async () => {
+  const p = editing; if (!p) return;
+  const name = clean($("#edName").value) || p.name, category = clean($("#edCat").value);
+  const btn = $("#edSave"); btn.disabled = true; btn.textContent = "Save ho raha hai…";
+  try {
+    if (p.provider === "cloudinary") {
+      await signedCall("context", { command: "add", context: `alt=${name}|category=${category}`, "public_ids[]": p.publicId });
+      overrides[p.publicId] = { name, category, t: Date.now() }; save(LS_OVR, overrides);
+    }
+    Object.assign(p, { name, category }); save(LS_PHOTOS, photos);
+    closeEdit(); render(); if (!$("#viewer").hidden) { vIndex = visible.indexOf(p); showV(); }
+    snack("Badal diya ✔ Dusre device par ~1 minute mein dikhega");
+  } catch (e) { snack("Save nahi hua: " + e.message); }
+  finally { btn.disabled = false; btn.textContent = "Save"; }
 });
 
 // ---------- upload ----------
@@ -570,6 +677,8 @@ function openSheet(files){
   $("#upChips").innerHTML = all.map(c => `<button class="chip" type="button" data-c="${esc(c)}" aria-pressed="${$("#category").value === c}">${esc(c)}</button>`).join("");
   $("#uploadSheet").hidden = false; document.body.style.overflow = "hidden";
 }
+try { const ko = localStorage.getItem("dryfu_keep_original"); if (ko !== null) $("#keepOriginal").checked = ko === "1"; } catch {}
+$("#keepOriginal").addEventListener("change", e => { try { localStorage.setItem("dryfu_keep_original", e.target.checked ? "1" : "0"); } catch {} });
 function closeSheet(){ $("#uploadSheet").hidden = true; document.body.style.overflow = ""; pendingFiles = []; }
 $("#upChips").addEventListener("click", e => { const c = e.target.closest(".chip"); if (!c) return; const on = c.getAttribute("aria-pressed") !== "true"; $("#category").value = on ? c.dataset.c : ""; $("#upChips").querySelectorAll(".chip").forEach(x => x.setAttribute("aria-pressed", x === c && on)); });
 $("#category").addEventListener("input", () => $("#upChips").querySelectorAll(".chip").forEach(x => x.setAttribute("aria-pressed", x.dataset.c === $("#category").value.trim())));
@@ -577,11 +686,21 @@ $("#upCancel").addEventListener("click", closeSheet);
 $("#uploadSheet").addEventListener("click", e => { if (e.target.id === "uploadSheet") closeSheet(); });
 $("#upGo").addEventListener("click", () => { const files = pendingFiles, cat = $("#category").value.trim(), nm = $("#photoName").value.trim(); closeSheet(); $("#photoName").value = ""; doUpload(files, cat, nm); });
 
-async function uploadOne(file, name, cat){
+function postForm(url, fd, onProgress){
+  return new Promise((resolve, reject) => {
+    const x = new XMLHttpRequest();
+    x.open("POST", url);
+    x.upload.onprogress = e => { if (e.lengthComputable) onProgress?.(e.loaded, e.total); };
+    x.onload = () => { let j = {}; try { j = JSON.parse(x.responseText); } catch {} resolve({ ok: x.status >= 200 && x.status < 300, status: x.status, j }); };
+    x.onerror = () => reject(new Error("Internet connection toot gaya"));
+    x.send(fd);
+  });
+}
+async function uploadOne(file, name, cat, onProgress){
   if (settings.provider === "imgbb") {
     const fd = new FormData(); fd.append("image", file); fd.append("name", name);
-    const r = await fetch("https://api.imgbb.com/1/upload?key=" + encodeURIComponent(settings.imgbbKey), { method:"POST", body:fd });
-    const j = await r.json().catch(() => ({}));
+    const { ok, status, j } = await postForm("https://api.imgbb.com/1/upload?key=" + encodeURIComponent(settings.imgbbKey), fd, onProgress);
+    const r = { ok, status };
     if (!r.ok || !j.success) throw new Error(j?.error?.message || ("ImgBB error " + r.status));
     return { url: j.data.url, thumb: j.data.thumb?.url || j.data.display_url, deleteUrl: j.data.delete_url, provider:"imgbb", width:j.data.width, height:j.data.height };
   }
@@ -589,27 +708,54 @@ async function uploadOne(file, name, cat){
   fd.append("file", file); fd.append("upload_preset", settings.cloudPreset); fd.append("folder", "dryfu");
   fd.append("public_id", name + "-" + Date.now().toString(36)); fd.append("tags", "dryfu");
   fd.append("context", `alt=${name}|category=${cat.replace(/[|=]/g," ")}`);
-  const r = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(settings.cloudName)}/image/upload`, { method:"POST", body:fd });
-  const j = await r.json().catch(() => ({}));
+  const { ok, status, j } = await postForm(`https://api.cloudinary.com/v1_1/${encodeURIComponent(settings.cloudName)}/image/upload`, fd, onProgress);
+  const r = { ok, status };
   if (!r.ok) throw new Error(j?.error?.message || ("Cloudinary error " + r.status));
   return { url: j.secure_url.replace("/upload/", "/upload/f_auto,q_auto/"), thumb: j.secure_url.replace("/upload/", "/upload/c_fill,w_400,h_400,f_auto,q_auto/"), original: j.secure_url, provider:"cloudinary", publicId: j.public_id, width:j.width, height:j.height };
 }
+// Photo ko upload se pehle phone/laptop mein hi chhota karna (5-10 MB -> ~300-700 KB)
+const MAX_SIDE = 2000, QUALITY = 0.85;
+async function compress(file){
+  if (!/^image\/(jpeg|png|webp|heic|heif)$/i.test(file.type)) return file;   // GIF/SVG waisa hi
+  if (file.size < 400 * 1024) return file;                                      // pehle se chhoti
+  try {
+    const bmp = await createImageBitmap(file, { imageOrientation: "from-image" }).catch(() => createImageBitmap(file));
+    const scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
+    const w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale);
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const ctx = c.getContext("2d");
+    const keepAlpha = /png|webp/i.test(file.type);
+    if (!keepAlpha) { ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h); }
+    ctx.drawImage(bmp, 0, 0, w, h); bmp.close?.();
+    const type = keepAlpha ? "image/webp" : "image/jpeg";
+    const blob = await new Promise(r => c.toBlob(r, type, QUALITY));
+    if (!blob || blob.size >= file.size) return file;
+    const ext = type === "image/webp" ? ".webp" : ".jpg";
+    return new File([blob], file.name.replace(/\.[^.]+$/, "") + ext, { type });
+  } catch { return file; }
+}
+
 async function doUpload(files, cat, baseName){
-  let done = 0, failed = 0, lastErr = "";
+  // 4 photos ek saath upload hoti hain; file waisi ki waisi jaati hai (quality same)
+  let done = 0, failed = 0, lastErr = "", next = 0;
   location.hash = "#photos";
-  for (let i = 0; i < files.length; i++) {
-    const f = files[i];
-    const name = slug(baseName ? (files.length > 1 ? `${baseName}-${i+1}` : baseName) : f.name);
-    const tmp = { id: "tmp" + Date.now() + i, name, category: cat, date: new Date().toISOString(), thumb: URL.createObjectURL(f), url: "", pending: true };
-    photos.unshift(tmp); render();
-    snack(`Upload ho raha hai ${i+1}/${files.length}…`, i / files.length);
-    try {
-      const res = await uploadOne(f, name, cat);
-      Object.assign(tmp, res, { id: res.publicId ? "c:" + res.publicId : "i:" + Date.now() + i, pending: false });
-      done++;
-    } catch (e) { failed++; lastErr = e.message; photos = photos.filter(p => p !== tmp); }
-    save(LS_PHOTOS, photos.filter(p => !p.pending)); render();
+  const jobs = files.map((f, i) => ({ f, tmp: { id: "tmp" + Date.now() + i, name: slug(baseName ? (files.length > 1 ? `${baseName}-${i+1}` : baseName) : f.name), category: cat, date: new Date(Date.now() + files.length - i).toISOString(), thumb: URL.createObjectURL(f), url: "", pending: true } }));
+  photos.unshift(...jobs.map(j => j.tmp)); render();
+  const progress = () => snack(`Upload ho raha hai: ${done + failed}/${files.length}`, (done + failed) / files.length);
+  progress();
+  async function worker(){
+    while (next < jobs.length) {
+      const { f, tmp } = jobs[next++];
+      try {
+        const res = await uploadOne(f, tmp.name, cat);
+        URL.revokeObjectURL(tmp.thumb);
+        Object.assign(tmp, res, { id: res.publicId ? "c:" + res.publicId : "i:" + Date.now() + Math.random(), pending: false, date: new Date().toISOString() });
+        done++;
+      } catch (e) { failed++; lastErr = e.message; photos = photos.filter(p => p !== tmp); }
+      save(LS_PHOTOS, photos.filter(p => !p.pending)); render(); progress();
+    }
   }
+  await Promise.all(Array.from({ length: Math.min(4, files.length) }, worker));
   snack(failed ? `${done} upload hui, ${failed} fail: ${lastErr}` : `${done} photo upload ho gayi ✔`);
   setTimeout(() => syncCloud(true), 70000);
 }
