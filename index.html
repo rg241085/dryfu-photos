@@ -3,153 +3,336 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Dryfu Photo Manager</title>
+<title>Dryfu Photos</title>
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#8a4b1f">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16130f" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Dryfu Photos">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Mukta:wght@400;500;700&family=JetBrains+Mono:wght@400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono&display=swap">
 <style>
-/* Layout: top bar, upload panel, then a grid of photo cards with copy buttons */
+/* Layout: sticky top bar + left rail (desktop) / bottom nav (mobile), edge-to-edge photo grid grouped by date, FAB for upload, full-screen viewer */
 :root{
-  --bg:#f7f3ee; --card:#fffdfa; --ink:#2b2118; --muted:#7a6a5c; --line:#e6dccf;
-  --accent:#8a4b1f; --accent-ink:#fff; --good:#2f7a3b; --bad:#b3261e;
-  --display:"Fraunces",Georgia,serif; --body:"Mukta",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+  --bg:#ffffff; --surface:#f6f2ee; --surface2:#ede6df; --ink:#211a14; --muted:#6f6359; --line:#e7dfd7;
+  --accent:#8a4b1f; --accent-soft:#f5e6da; --on-accent:#ffffff; --good:#2f7a3b; --bad:#b3261e; --scrim:rgba(0,0,0,.45);
+  --font:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+  --top:env(safe-area-inset-top,0px); --bottom:env(safe-area-inset-bottom,0px);
+  --sl:max(12px,env(safe-area-inset-left,0px)); --sr:max(12px,env(safe-area-inset-right,0px));
 }
 @media (prefers-color-scheme:dark){:root{
-  --bg:#1b1612; --card:#251e18; --ink:#f1e8de; --muted:#b3a291; --line:#3a2f26;
-  --accent:#d9925a; --accent-ink:#1b1612; --good:#6fc27c; --bad:#ff8a80; color-scheme:dark}}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--body)}
-.wrap{max-width:1100px;margin:0 auto;padding:calc(20px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(60px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:grid;gap:20px}
-header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
-h1{font-family:var(--display);font-size:28px;margin:0;color:var(--accent)}
-h1 small{display:block;font-family:var(--body);font-size:14px;color:var(--muted);font-weight:400}
-h2{font-size:18px;margin:0 0 10px}
-.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
-button,.btn{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 14px;border-radius:8px;cursor:pointer}
-button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
-button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-button:disabled{opacity:.5;cursor:not-allowed}
-label{display:grid;gap:4px;font-size:14px;color:var(--muted)}
-input,select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);width:100%}
-.row{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
+  --bg:#16130f; --surface:#221d18; --surface2:#2d261f; --ink:#f1e9e1; --muted:#b2a598; --line:#342c25;
+  --accent:#e0a271; --accent-soft:#3a2a1d; --on-accent:#1a120b; --good:#7ccb88; --bad:#ff8a80; color-scheme:dark}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+a{color:inherit;text-decoration:none}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 var(--font)}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input,select{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%}
+.ico{width:24px;height:24px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* top bar */
+.topbar{position:sticky;top:0;z-index:20;background:var(--bg);padding:calc(8px + var(--top)) var(--sr) 8px var(--sl);display:flex;align-items:center;gap:10px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:20px;white-space:nowrap}
+.brand img{width:34px;height:34px;border-radius:10px}
+.brand span b{color:var(--accent)}
+.search{flex:1;max-width:720px;margin:0 auto;display:flex;align-items:center;gap:8px;background:var(--surface);border-radius:999px;padding:0 14px;height:46px}
+.search input{border:0;background:none;padding:0;height:100%}
+.search input:focus-visible{outline:none}
+.search:focus-within{background:var(--bg);box-shadow:0 1px 6px rgba(0,0,0,.18)}
+.iconbtn{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;color:var(--muted);position:relative}
+.iconbtn:hover{background:var(--surface)}
+.iconbtn.spin .ico{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.dot{position:absolute;top:9px;right:9px;width:9px;height:9px;border-radius:50%;background:var(--good);border:2px solid var(--bg)}
+.dot.err{background:var(--bad)}
+.pillbtn{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:9px 16px;font-weight:600;border:1px solid var(--line)}
+.pillbtn.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.pillbtn:hover{filter:brightness(.97)}
+
+/* shell */
+.shell{display:flex}
+.rail{display:none}
+main{flex:1;min-width:0;padding:0 var(--sr) calc(110px + var(--bottom)) var(--sl)}
+.bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--bg);border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:6px var(--sr) calc(6px + var(--bottom)) var(--sl)}
+.navitem{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;font-weight:600;color:var(--muted);padding:4px 14px;border-radius:16px;min-width:72px}
+.navitem .pill{display:grid;place-items:center;width:58px;height:30px;border-radius:999px}
+.navitem[aria-current="page"]{color:var(--ink)}
+.navitem[aria-current="page"] .pill{background:var(--accent-soft);color:var(--accent)}
+@media (min-width:900px){
+  .bottomnav{display:none}
+  .rail{display:flex;flex-direction:column;gap:4px;width:240px;flex:none;padding:8px 12px 0 var(--sl);position:sticky;top:calc(62px + var(--top));align-self:flex-start}
+  .rail .navitem{flex-direction:row;gap:16px;font-size:15px;padding:0 20px;height:46px;border-radius:999px;min-width:0;justify-content:flex-start}
+  .rail .navitem .pill{width:auto;height:auto;background:none!important}
+  .rail .navitem[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
+  main{padding-bottom:110px}
+}
+
+/* chips */
+.chips{display:flex;gap:8px;overflow-x:auto;padding:4px 0 12px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);border-radius:10px;padding:6px 14px;font-weight:500;font-size:14px;color:var(--ink);white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+
+/* banner */
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;background:var(--accent-soft);border-radius:14px;padding:14px 16px;margin:4px 0 14px}
+.banner p{margin:0}
+
+/* grid */
+.day{margin:6px 0 18px}
+.day h3{font-size:15px;font-weight:600;margin:6px 4px 10px}
+.day h3 small{color:var(--muted);font-weight:400;margin-left:6px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px}
+@media (min-width:560px){.grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}}
+@media (min-width:900px){.grid{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:4px}}
+.tile{position:relative;aspect-ratio:1;max-width:100%;overflow:hidden;background:var(--surface2);padding:0;display:block}
+.tile img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s}
+.tile:hover img{transform:scale(1.03)}
+.tile .quick{position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.6);color:#fff;border-radius:999px;font-size:12px;padding:4px 10px;opacity:0;transition:.15s;display:flex;gap:4px;align-items:center}
+.tile:hover .quick,.tile:focus-visible .quick{opacity:1}
+.tile .pending{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.35);color:#fff;font-size:13px}
+@media (hover:none){.tile .quick{display:none}}
+
+.empty{display:grid;justify-items:center;text-align:center;gap:10px;padding:60px 20px;color:var(--muted)}
+.empty svg{width:140px;height:auto}
+.empty h2{color:var(--ink);margin:0;font-size:20px}
+
+/* categories */
+.cats{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+@media (min-width:700px){.cats{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}}
+.cat{text-align:left;display:grid;gap:6px}
+.cat .cover{aspect-ratio:1;max-width:100%;border-radius:16px;overflow:hidden;background:var(--surface2);display:grid;place-items:center;color:var(--muted)}
+.cat .cover img{width:100%;height:100%;object-fit:cover}
+.cat b{font-weight:600}
+.cat small{color:var(--muted)}
+
+/* settings */
+.settings{max-width:680px;display:grid;gap:14px}
+.card{background:var(--surface);border-radius:16px;padding:18px;display:grid;gap:12px}
+.card h2{margin:0;font-size:17px}
+.card p{margin:0}
+label{display:grid;gap:5px;font-size:14px;color:var(--muted)}
+.card input{background:var(--bg)}
+.hint{font-size:13px;color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .row>label{flex:1 1 200px}
-#drop{border:2px dashed var(--line);border-radius:12px;padding:30px 16px;text-align:center;cursor:pointer;transition:.15s}
-#drop.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
-#drop strong{color:var(--accent)}
-.hint{font-size:14px;color:var(--muted)}
-#status{font-size:14px;min-height:1.5em}
+.status{display:flex;align-items:center;gap:10px;font-weight:600}
 .ok{color:var(--good)} .err{color:var(--bad)}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
-.card img{width:100%;aspect-ratio:1;object-fit:cover;background:var(--line);display:block}
-.card .meta{padding:10px;display:grid;gap:6px;min-width:0}
-.card .name{font-weight:700;overflow-wrap:anywhere}
-.tag{display:inline-block;font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:0 8px;color:var(--muted)}
-.url{font:12px var(--mono);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px;overflow-wrap:anywhere;user-select:all}
-.acts{display:flex;flex-wrap:wrap;gap:6px}
-.acts button{padding:5px 9px;font-size:13px}
-.empty{text-align:center;color:var(--muted);padding:30px}
-details summary{cursor:pointer;font-weight:700}
-.statusbar{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;padding:12px 18px}
-#connStatus{font-weight:500}
-#qr{display:inline-block;background:#fff;padding:10px;border-radius:8px;line-height:0}
-.share{display:grid;gap:12px;grid-template-columns:auto 1fr;align-items:start}
-@media (max-width:600px){.share{grid-template-columns:1fr}}
-#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:8px;opacity:0;transition:.2s;pointer-events:none}
-#toast.show{opacity:1}
+.url{font:12px var(--mono);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;overflow-wrap:anywhere;user-select:all}
+.share{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start}
+@media (max-width:520px){.share{grid-template-columns:1fr}}
+#qr{background:#fff;padding:10px;border-radius:10px;line-height:0;justify-self:start}
+.btnfile{position:relative;overflow:hidden}
+.btnfile input{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+/* fab */
+.fab{position:fixed;z-index:25;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(84px + var(--bottom));height:56px;border-radius:18px;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;gap:10px;padding:0 18px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+@media (min-width:900px){.fab{bottom:28px;padding:0 22px}}
+
+/* sheet / dialog */
+.overlay{position:fixed;inset:0;z-index:40;background:var(--scrim);display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--bg);width:100%;max-width:560px;border-radius:22px 22px 0 0;padding:10px 18px calc(18px + var(--bottom));display:grid;gap:14px;max-height:90vh;overflow:auto}
+.sheet .grab{width:36px;height:4px;border-radius:9px;background:var(--line);justify-self:center}
+.sheet h2{margin:0;font-size:18px}
+@media (min-width:700px){.overlay{align-items:center}.sheet{border-radius:22px}.sheet .grab{display:none}}
+.previews{display:flex;gap:6px;overflow-x:auto}
+.previews img{width:72px;height:72px;object-fit:cover;border-radius:10px;flex:none}
+.sheet .actions{display:flex;justify-content:flex-end;gap:10px}
+
+/* viewer */
+.viewer{position:fixed;inset:0;z-index:50;background:#000;color:#fff;display:grid;grid-template-rows:auto 1fr auto}
+.viewer .vtop,.viewer .vbot{display:flex;align-items:center;gap:8px;padding:calc(8px + var(--top)) var(--sr) 8px var(--sl);background:linear-gradient(rgba(0,0,0,.6),transparent)}
+.viewer .vbot{padding:10px var(--sr) calc(12px + var(--bottom)) var(--sl);background:linear-gradient(transparent,rgba(0,0,0,.7));justify-content:center;flex-wrap:wrap}
+.viewer .iconbtn{color:#fff}
+.viewer .iconbtn:hover{background:rgba(255,255,255,.12)}
+.vtitle{flex:1;min-width:0}
+.vtitle b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vtitle small{opacity:.75}
+.vimg{position:relative;min-height:0;display:grid;place-items:center;touch-action:pan-y}
+.vimg img{max-width:100%;max-height:100%;object-fit:contain;user-select:none}
+.vnav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15)!important}
+.vnav.prev{left:12px}.vnav.next{right:12px}
+@media (hover:none){.vnav{display:none}}
+.vact{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;padding:6px 12px;border-radius:12px;min-width:76px}
+.vact:hover{background:rgba(255,255,255,.12)}
+.vact .ico{width:22px;height:22px}
+
+/* drop overlay + snackbar */
+#dropOverlay{position:fixed;inset:0;z-index:60;background:color-mix(in srgb,var(--accent) 22%,transparent);border:3px dashed var(--accent);display:grid;place-items:center;font-size:22px;font-weight:700;color:var(--accent);pointer-events:none}
+#snack{position:fixed;z-index:70;left:50%;transform:translateX(-50%);bottom:calc(150px + var(--bottom));background:#2b2520;color:#fff;border-radius:10px;padding:12px 16px;min-width:240px;max-width:calc(100vw - 32px);box-shadow:0 4px 14px rgba(0,0,0,.3);display:grid;gap:8px;font-size:14px}
+@media (min-width:900px){#snack{bottom:100px}}
+#snack .bar{height:4px;background:rgba(255,255,255,.2);border-radius:4px;overflow:hidden}
+#snack .bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media (max-width:640px){.topbar{flex-wrap:wrap}.brand{flex:1}.search{order:3;flex-basis:100%;height:44px}}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>Dryfu Photo Manager<small>Business photos upload karo, link copy karo, dryfu.in par lagao</small></h1>
-    <div class="acts">
-      <button id="installBtn" class="primary" type="button" hidden>📲 App install karein</button>
-      <button id="exportBtn" type="button">Backup download</button>
-      <label class="btn" style="display:inline-block;color:var(--ink)">Backup restore<input id="importFile" type="file" accept=".json" hidden></label>
-    </div>
-  </header>
 
-  <div class="panel statusbar">
-    <span id="connStatus">Setup baaki hai</span>
-    <span class="acts"><button id="syncBtn" type="button">🔄 Sync</button><button id="shareBtn" type="button">📱 Dusre device se jodein</button></span>
-  </div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-photo" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-sync" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 12A9 9 0 0 1 18.5 5.8L21 8"/><path d="M21 3v5h-5M3 21v-5h5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></symbol>
+  <symbol id="i-open" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-install" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
+</svg>
 
-  <div class="panel" id="sharePanel" hidden>
-    <h2>Dusre device (mobile/laptop) ko jodein</h2>
-    <div class="share">
-      <div id="qr"></div>
-      <div style="display:grid;gap:10px;min-width:0">
-        <p class="hint" style="margin:0">Mobile ke camera se ye QR scan kijiye, ya neeche wala link mobile par kholiye. Settings apne aap save ho jayengi aur saari photos dikhne lagengi.</p>
-        <div class="url" id="shareLink"></div>
-        <div class="acts"><button id="copyLink" type="button">Link copy</button><button id="copyCode" type="button">Setup code copy</button></div>
-        <p class="hint" style="margin:0">⚠️ Ye link/QR sirf apne devices par use karein, kisi aur ko na bhejein.</p>
+<header class="topbar">
+  <div class="brand"><img src="icon-192.png" alt=""><span>Dryfu <b>Photos</b></span></div>
+  <label class="search" aria-label="Photos dhoondhein">
+    <svg class="ico" style="color:var(--muted)"><use href="#i-search"/></svg>
+    <input id="search" type="search" placeholder="Photos dhoondhein: Kaju, Badam…" autocomplete="off">
+  </label>
+  <button class="iconbtn" id="installBtn" title="App install karein" hidden><svg class="ico"><use href="#i-install"/></svg></button>
+  <button class="iconbtn" id="syncBtn" title="Sync"><svg class="ico"><use href="#i-sync"/></svg><span class="dot" id="syncDot" hidden></span></button>
+</header>
+
+<div class="shell">
+  <nav class="rail" aria-label="Menu">
+    <a class="navitem" href="#photos" data-view="photos"><span class="pill"><svg class="ico"><use href="#i-photo"/></svg></span>Photos</a>
+    <a class="navitem" href="#categories" data-view="categories"><span class="pill"><svg class="ico"><use href="#i-folder"/></svg></span>Categories</a>
+    <a class="navitem" href="#settings" data-view="settings"><span class="pill"><svg class="ico"><use href="#i-gear"/></svg></span>Settings</a>
+  </nav>
+
+  <main>
+    <!-- PHOTOS -->
+    <section id="view-photos">
+      <div class="banner" id="setupBanner" hidden>
+        <p><b>Shuru karne ke liye setup baaki hai.</b><br><span class="hint">Cloudinary details daaliye, ya laptop se QR scan karke is device ko jodiye.</span></p>
+        <a class="pillbtn primary" href="#settings">Setup karein</a>
       </div>
-    </div>
-  </div>
+      <div class="chips" id="chips"></div>
+      <div id="timeline"></div>
+    </section>
 
-  <p id="iosHint" class="panel hint" hidden>iPhone par install: Safari mein neeche <b>Share</b> button dabaiye → <b>Add to Home Screen</b>.</p>
+    <!-- CATEGORIES -->
+    <section id="view-categories" hidden>
+      <h2 style="margin:6px 4px 14px;font-size:20px">Categories</h2>
+      <div class="cats" id="cats"></div>
+    </section>
 
-  <details class="panel" id="settingsBox">
-    <summary id="settingsTitle">⚙️ Settings</summary>
-    <div style="display:grid;gap:12px;margin-top:12px">
-      <label>Photo kahan save ho?
-        <select id="provider">
-          <option value="cloudinary">Cloudinary (laptop + mobile sync ✔)</option>
-          <option value="imgbb">ImgBB (sync nahi hota, sirf isi device par list)</option>
-        </select>
-      </label>
-      <div id="imgbbFields">
-        <label>ImgBB API key <input id="imgbbKey" type="password" placeholder="api.imgbb.com se key copy karke yahan paste karein"></label>
-        <p class="hint">Key kaise milegi: imgbb.com par free account banaiye → api.imgbb.com kholiye → "Get API key" → copy.</p>
-      </div>
-      <div id="cloudFields" hidden>
-        <div class="row">
-          <label>Cloud name <input id="cloudName" placeholder="jaise: dryfu"></label>
-          <label>Upload preset (Unsigned) <input id="cloudPreset" placeholder="jaise: dryfu_upload"></label>
+    <!-- SETTINGS -->
+    <section id="view-settings" hidden>
+      <div class="settings">
+        <h2 style="margin:6px 4px 0;font-size:20px">Settings</h2>
+
+        <div class="card">
+          <div class="status" id="connStatus">Setup baaki hai</div>
+          <p class="hint" id="syncInfo"></p>
         </div>
-        <p class="hint">Cloudinary dashboard → Settings → Upload → Upload presets → "Add upload preset" → Signing mode: <b>Unsigned</b> → save. Cloud name dashboard ke upar likha hota hai.</p>
+
+        <div class="card">
+          <h2>Photo kahan save ho</h2>
+          <label>Service
+            <select id="provider">
+              <option value="cloudinary">Cloudinary (laptop + mobile sync ✔)</option>
+              <option value="imgbb">ImgBB (sync nahi, list sirf is device par)</option>
+            </select>
+          </label>
+          <div id="cloudFields" style="display:grid;gap:12px">
+            <div class="row">
+              <label>Cloud name <input id="cloudName" placeholder="jaise: dxyz123ab" autocomplete="off"></label>
+              <label>Upload preset (Unsigned) <input id="cloudPreset" placeholder="jaise: dryfu_upload" autocomplete="off"></label>
+            </div>
+            <p class="hint">Sync ke liye Cloudinary → Settings → Security → "Restricted image types" mein <b>Resource list</b> ka tick hatayein.</p>
+          </div>
+          <div id="imgbbFields" hidden style="display:grid;gap:8px">
+            <label>ImgBB API key <input id="imgbbKey" type="password" placeholder="api.imgbb.com se key"></label>
+          </div>
+          <label>Ya dusre device ka Setup code paste karein <input id="setupCode" placeholder="DRYFU-…" autocomplete="off"></label>
+          <div class="row"><button class="pillbtn primary" id="saveSettings" type="button">Save karein</button></div>
+        </div>
+
+        <div class="card" id="shareCard">
+          <h2>Dusre device (mobile / laptop) ko jodein</h2>
+          <div class="share">
+            <div id="qr"></div>
+            <div style="display:grid;gap:10px;min-width:0">
+              <p class="hint">Mobile ke camera se QR scan kijiye ya ye link mobile par kholiye. Settings apne aap aa jayengi.</p>
+              <div class="url" id="shareLink"></div>
+              <div class="row"><button class="pillbtn" id="copyLink" type="button">Link copy</button><button class="pillbtn" id="copyCode" type="button">Setup code copy</button></div>
+              <p class="hint">⚠️ Ye link sirf apne devices par use karein.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>App aur backup</h2>
+          <p class="hint" id="iosHint" hidden>iPhone par install: Safari → <b>Share</b> → <b>Add to Home Screen</b>.</p>
+          <div class="row">
+            <button class="pillbtn" id="installBtn2" type="button" hidden>📲 App install karein</button>
+            <button class="pillbtn" id="exportBtn" type="button">Backup download</button>
+            <span class="pillbtn btnfile">Backup restore<input id="importFile" type="file" accept=".json" aria-label="Backup restore"></span>
+          </div>
+        </div>
       </div>
-      <label>Ya dusre device ka Setup code yahan paste karein <input id="setupCode" placeholder="DRYFU-…"></label>
-      <div><button class="primary" id="saveSettings" type="button">Settings save karein</button></div>
-    </div>
-  </details>
-
-  <section class="panel">
-    <h2>Naya photo upload</h2>
-    <div class="row" style="margin-bottom:12px">
-      <label>Category
-        <input id="category" list="cats" placeholder="jaise: Badam, Kaju, Pista, Banner">
-        <datalist id="cats"><option>Badam</option><option>Kaju</option><option>Pista</option><option>Akhrot</option><option>Kishmish</option><option>Gift Box</option><option>Banner</option><option>Logo</option></datalist>
-      </label>
-      <label>Photo ka naam (optional)
-        <input id="photoName" placeholder="jaise: kaju-w240-500g">
-      </label>
-    </div>
-    <div id="drop" tabindex="0" role="button" aria-label="Photo chuniye">
-      <strong>Yahan click karein</strong> ya photos drag karke chhodein<br>
-      <span class="hint">Ek saath kai photos chun sakte hain · JPG, PNG, WEBP, GIF · max 32 MB (ImgBB)</span>
-      <input id="fileInput" type="file" accept="image/*" multiple hidden>
-    </div>
-    <p id="status"></p>
-  </section>
-
-  <section>
-    <div class="row" style="margin-bottom:12px;justify-content:space-between">
-      <h2 style="margin:0">Meri photos (<span id="count">0</span>)</h2>
-      <label style="flex:0 1 280px">Dhoondhein <input id="search" placeholder="naam ya category"></label>
-    </div>
-    <div class="grid" id="grid"></div>
-  </section>
+    </section>
+  </main>
 </div>
-<div id="toast"></div>
+
+<nav class="bottomnav" aria-label="Menu">
+  <a class="navitem" href="#photos" data-view="photos"><span class="pill"><svg class="ico"><use href="#i-photo"/></svg></span>Photos</a>
+  <a class="navitem" href="#categories" data-view="categories"><span class="pill"><svg class="ico"><use href="#i-folder"/></svg></span>Categories</a>
+  <a class="navitem" href="#settings" data-view="settings"><span class="pill"><svg class="ico"><use href="#i-gear"/></svg></span>Settings</a>
+</nav>
+
+<button class="fab" id="fab" type="button"><svg class="ico"><use href="#i-plus"/></svg><span>Upload</span></button>
+<input id="fileInput" type="file" accept="image/*" multiple hidden>
+
+<!-- upload sheet -->
+<div class="overlay" id="uploadSheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="upTitle">
+    <div class="grab"></div>
+    <h2 id="upTitle">Upload karein</h2>
+    <div class="previews" id="previews"></div>
+    <div>
+      <label for="category">Category</label>
+      <div class="chips" id="upChips" style="padding-top:8px"></div>
+      <input id="category" placeholder="Ya nayi category likhiye" autocomplete="off">
+    </div>
+    <label>Photo ka naam (optional) <input id="photoName" placeholder="jaise: kaju-w240-500g" autocomplete="off"></label>
+    <div class="actions">
+      <button class="pillbtn" id="upCancel" type="button">Cancel</button>
+      <button class="pillbtn primary" id="upGo" type="button">Upload</button>
+    </div>
+  </div>
+</div>
+
+<!-- viewer -->
+<div class="viewer" id="viewer" hidden role="dialog" aria-modal="true" aria-label="Photo">
+  <div class="vtop">
+    <button class="iconbtn" id="vClose" title="Wapas"><svg class="ico"><use href="#i-back"/></svg></button>
+    <div class="vtitle"><b id="vName"></b><small id="vMeta"></small></div>
+  </div>
+  <div class="vimg" id="vImgWrap">
+    <img id="vImg" alt="">
+    <button class="iconbtn vnav prev" id="vPrev" title="Pichli"><svg class="ico"><use href="#i-left"/></svg></button>
+    <button class="iconbtn vnav next" id="vNext" title="Agli"><svg class="ico"><use href="#i-right"/></svg></button>
+  </div>
+  <div class="vbot">
+    <button class="vact" data-act="url"><svg class="ico"><use href="#i-link"/></svg>Link copy</button>
+    <button class="vact" data-act="html"><svg class="ico"><use href="#i-code"/></svg>HTML code</button>
+    <button class="vact" data-act="open"><svg class="ico"><use href="#i-open"/></svg>Kholein</button>
+    <button class="vact" data-act="del"><svg class="ico"><use href="#i-trash"/></svg><span>Hatao</span></button>
+  </div>
+</div>
+
+<div id="dropOverlay" hidden>Photos yahan chhodiye</div>
+<div id="snack" hidden><span id="snackText"></span><div class="bar" id="snackBar" hidden><i></i></div></div>
 
 <script src="config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -159,216 +342,102 @@ const APP_URL = (typeof GITHUB_USER === "string" && GITHUB_USER) ? `https://${GI
 const LS_SET = "dryfu_settings", LS_PHOTOS = "dryfu_photos";
 const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const slug = s => s.toLowerCase().replace(/\.[a-z0-9]+$/,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,60) || "photo";
 
 let settings = load(LS_SET, { provider: "cloudinary", imgbbKey: "", cloudName: "", cloudPreset: "" });
 let photos = load(LS_PHOTOS, []);
+let filterCat = "";
+let visible = [];   // photos currently shown (viewer navigation)
 
-function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),1800); }
-function setStatus(msg, cls=""){ const s=$("#status"); s.textContent=msg; s.className=cls; }
+// ---------- snackbar ----------
+let snackTimer;
+function snack(msg, progress){
+  const s = $("#snack"); $("#snackText").textContent = msg; s.hidden = false;
+  const bar = $("#snackBar");
+  if (progress == null) { bar.hidden = true; clearTimeout(snackTimer); snackTimer = setTimeout(() => s.hidden = true, 2600); }
+  else { bar.hidden = false; bar.firstElementChild.style.width = Math.round(progress*100) + "%"; clearTimeout(snackTimer); }
+}
+async function copy(text, label){
+  try { await navigator.clipboard.writeText(text); snack(label + " copy ho gaya ✔"); }
+  catch {
+    const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); snack(label + " copy ho gaya ✔"); } catch { snack("Copy nahi hua"); }
+    ta.remove();
+  }
+}
+
+// ---------- routing ----------
+const VIEWS = ["photos","categories","settings"];
+function route(){
+  let v = location.hash.slice(1);
+  if (!VIEWS.includes(v)) v = "photos";
+  VIEWS.forEach(n => $("#view-" + n).hidden = n !== v);
+  document.querySelectorAll(".navitem").forEach(a => a.dataset.view === v ? a.setAttribute("aria-current","page") : a.removeAttribute("aria-current"));
+  $("#fab").hidden = v === "settings";
+  if (v === "settings") renderShare();
+  window.scrollTo(0, 0);
+}
+window.addEventListener("hashchange", route);
 
 // ---------- settings ----------
+function isConfigured(){ return settings.provider === "imgbb" ? !!settings.imgbbKey : !!(settings.cloudName && settings.cloudPreset); }
 function fillSettings(){
   $("#provider").value = settings.provider;
-  $("#imgbbKey").value = settings.imgbbKey;
-  $("#cloudName").value = settings.cloudName;
-  $("#cloudPreset").value = settings.cloudPreset;
+  $("#imgbbKey").value = settings.imgbbKey; $("#cloudName").value = settings.cloudName; $("#cloudPreset").value = settings.cloudPreset;
   toggleProvider();
-  if (!isConfigured()) $("#settingsBox").open = true;
 }
-function toggleProvider(){
-  const p = $("#provider").value;
-  $("#imgbbFields").hidden = p !== "imgbb";
-  $("#cloudFields").hidden = p !== "cloudinary";
-}
-function isConfigured(){
-  return settings.provider === "imgbb" ? !!settings.imgbbKey : !!(settings.cloudName && settings.cloudPreset);
-}
+function toggleProvider(){ const p = $("#provider").value; $("#imgbbFields").hidden = p !== "imgbb"; $("#cloudFields").hidden = p !== "cloudinary"; }
 $("#provider").addEventListener("change", toggleProvider);
 $("#saveSettings").addEventListener("click", () => {
   const code = $("#setupCode").value.trim();
   if (code) {
-    if (applySetupCode(code)) { $("#setupCode").value = ""; fillSettings(); toast("Device jud gaya ✔"); $("#settingsBox").open = false; syncCloud(); }
-    else toast("Setup code sahi nahi hai");
-    return;
-  }
-  settings = {
-    provider: $("#provider").value,
-    imgbbKey: $("#imgbbKey").value.trim(),
-    cloudName: $("#cloudName").value.trim(),
-    cloudPreset: $("#cloudPreset").value.trim()
-  };
-  save(LS_SET, settings);
-  toast(isConfigured() ? "Settings save ho gayi ✔" : "Kuch fields khaali hain");
-  if (isConfigured()) $("#settingsBox").open = false;
-  updateConn(); syncCloud();
-});
-
-// ---------- upload ----------
-const slug = s => s.toLowerCase().replace(/\.[a-z0-9]+$/,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,60) || "photo";
-
-async function uploadOne(file, name){
-  if (settings.provider === "imgbb") {
-    const fd = new FormData();
-    fd.append("image", file);
-    fd.append("name", name);
-    const r = await fetch("https://api.imgbb.com/1/upload?key=" + encodeURIComponent(settings.imgbbKey), { method:"POST", body:fd });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok || !j.success) throw new Error(j?.error?.message || ("ImgBB error " + r.status));
-    return { url: j.data.url, thumb: j.data.thumb?.url || j.data.display_url, deleteUrl: j.data.delete_url, provider:"imgbb", width:j.data.width, height:j.data.height };
+    if (!applySetupCode(code)) return snack("Setup code sahi nahi hai");
+    $("#setupCode").value = "";
   } else {
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("upload_preset", settings.cloudPreset);
-    fd.append("folder", "dryfu");
-    fd.append("public_id", name + "-" + Date.now().toString(36));
-    fd.append("tags", "dryfu");
-    fd.append("context", `alt=${name}|category=${($("#category").value.trim()||"").replace(/[|=]/g," ")}`);
-    const r = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(settings.cloudName)}/image/upload`, { method:"POST", body:fd });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j?.error?.message || ("Cloudinary error " + r.status));
-    // f_auto,q_auto = har browser ko chhota, fast format (webp/avif) milega
-    const optimized = j.secure_url.replace("/upload/", "/upload/f_auto,q_auto/");
-    const thumb = j.secure_url.replace("/upload/", "/upload/c_fill,w_400,h_400,f_auto,q_auto/");
-    return { url: optimized, thumb, original: j.secure_url, provider:"cloudinary", publicId: j.public_id, width:j.width, height:j.height };
+    settings = { provider: $("#provider").value, imgbbKey: $("#imgbbKey").value.trim(), cloudName: $("#cloudName").value.trim(), cloudPreset: $("#cloudPreset").value.trim() };
+    save(LS_SET, settings);
   }
-}
-
-async function handleFiles(list){
-  const files = [...list].filter(f => f.type.startsWith("image/"));
-  if (!files.length) return;
-  if (!isConfigured()) { $("#settingsBox").open = true; setStatus("Pehle Settings mein API key daalein.", "err"); return; }
-  const cat = $("#category").value.trim();
-  const baseName = $("#photoName").value.trim();
-  let done = 0, failed = 0;
-  for (let i = 0; i < files.length; i++) {
-    const f = files[i];
-    const name = slug(baseName ? (files.length > 1 ? `${baseName}-${i+1}` : baseName) : f.name);
-    setStatus(`Upload ho raha hai ${i+1}/${files.length}: ${f.name} …`);
-    try {
-      const res = await uploadOne(f, name);
-      photos.unshift({ id: crypto.randomUUID?.() || String(Date.now()+Math.random()), name, category: cat, date: new Date().toISOString(), ...res });
-      save(LS_PHOTOS, photos); render(); done++;
-    } catch (e) {
-      failed++; setStatus(`${f.name} upload nahi hua: ${e.message}`, "err");
-    }
-  }
-  if (!failed) setStatus(`${done} photo upload ho gayi ✔ Neeche se link copy karein.`, "ok");
-  else setStatus(`${done} upload hui, ${failed} fail. Internet ya API key check karein.`, "err");
-  $("#photoName").value = "";
-  setTimeout(() => syncCloud(true), 70000);
-}
-
-const drop = $("#drop"), fileInput = $("#fileInput");
-drop.addEventListener("click", () => fileInput.click());
-drop.addEventListener("keydown", e => { if (e.key==="Enter"||e.key===" ") { e.preventDefault(); fileInput.click(); } });
-fileInput.addEventListener("change", () => { handleFiles(fileInput.files); fileInput.value=""; });
-["dragenter","dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
-["dragleave","drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
-drop.addEventListener("drop", e => handleFiles(e.dataTransfer.files));
-document.addEventListener("paste", e => { if (e.clipboardData?.files?.length) handleFiles(e.clipboardData.files); });
-
-// ---------- gallery ----------
-async function copy(text, label){
-  try { await navigator.clipboard.writeText(text); toast(label + " copy ho gaya ✔"); }
-  catch {
-    const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select();
-    try { document.execCommand("copy"); toast(label + " copy ho gaya ✔"); } catch { toast("Copy nahi hua, link select karke copy karein"); }
-    ta.remove();
-  }
-}
-const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
-
-function render(){
-  const q = $("#search").value.trim().toLowerCase();
-  const list = photos.filter(p => !q || (p.name + " " + (p.category||"")).toLowerCase().includes(q));
-  $("#count").textContent = photos.length;
-  const grid = $("#grid");
-  if (!list.length) {
-    grid.innerHTML = `<div class="empty" style="grid-column:1/-1">${photos.length ? "Is search se koi photo nahi mili." : "Abhi koi photo nahi hai. Upar se pehli photo upload karein."}</div>`;
-    return;
-  }
-  grid.innerHTML = list.map(p => `
-    <article class="card" data-id="${esc(p.id)}">
-      <img src="${esc(p.thumb || p.url)}" alt="${esc(p.name)}" loading="lazy">
-      <div class="meta">
-        <div class="name">${esc(p.name)}</div>
-        <div>${p.category ? `<span class="tag">${esc(p.category)}</span> ` : ""}<span class="tag">${esc(p.provider)}</span> <span class="tag">${new Date(p.date).toLocaleDateString("en-IN")}</span></div>
-        <div class="url">${esc(p.url)}</div>
-        <div class="acts">
-          <button data-act="url" type="button">Link copy</button>
-          <button data-act="html" type="button">&lt;img&gt; code copy</button>
-          <button data-act="open" type="button">Kholein</button>
-          <button data-act="del" type="button">Hatao</button>
-        </div>
-      </div>
-    </article>`).join("");
-}
-$("#search").addEventListener("input", render);
-$("#grid").addEventListener("click", e => {
-  const b = e.target.closest("button[data-act]"); if (!b) return;
-  const id = b.closest(".card").dataset.id;
-  const p = photos.find(x => x.id === id); if (!p) return;
-  const act = b.dataset.act;
-  if (act === "url") copy(p.url, "Link");
-  if (act === "html") copy(`<img src="${p.url}" alt="${(p.category ? p.category + " - " : "") + p.name}" loading="lazy"${p.width ? ` width="${p.width}" height="${p.height}"` : ""}>`, "HTML code");
-  if (act === "open") window.open(p.url, "_blank", "noopener");
-  if (act === "del" && p.provider === "cloudinary") {
-    toast("Cloudinary photo Media Library se delete karein, phir 🔄 Sync dabayein");
-    window.open("https://console.cloudinary.com/console/media_library", "_blank", "noopener");
-    return;
-  }
-  if (act === "del") {
-    if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = "Pakka? dobara dabaein"; setTimeout(() => { b.dataset.confirm=""; b.textContent="Hatao"; }, 3000); return; }
-    photos = photos.filter(x => x.id !== id); save(LS_PHOTOS, photos); render();
-    if (p.deleteUrl) { toast("List se hata diya. Server se bhi hatane ke liye delete page khul raha hai"); window.open(p.deleteUrl, "_blank", "noopener"); }
-    else toast("List se hata diya (Cloudinary Media Library se bhi delete kar sakte hain)");
-  }
+  fillSettings(); updateConn(); renderShare();
+  if (isConfigured()) { snack("Save ho gaya ✔"); syncCloud(); location.hash = "#photos"; }
+  else snack("Kuch fields khaali hain");
 });
-
-// ---------- backup ----------
-$("#exportBtn").addEventListener("click", () => {
-  const blob = new Blob([JSON.stringify({ app:"dryfu-photo-manager", exported:new Date().toISOString(), photos }, null, 2)], { type:"application/json" });
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-  a.download = `dryfu-photos-backup-${new Date().toISOString().slice(0,10)}.json`; a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-});
-$("#importFile").addEventListener("change", async e => {
-  const f = e.target.files[0]; if (!f) return;
-  try {
-    const j = JSON.parse(await f.text());
-    const incoming = Array.isArray(j) ? j : j.photos;
-    if (!Array.isArray(incoming)) throw 0;
-    const ids = new Set(photos.map(p => p.id));
-    const added = incoming.filter(p => p && p.url && !ids.has(p.id));
-    photos = [...added, ...photos]; save(LS_PHOTOS, photos); render();
-    toast(`${added.length} photos restore ho gayi ✔`);
-  } catch { toast("Ye backup file sahi nahi hai"); }
-  e.target.value = "";
-});
-
-// ---------- sync (Cloudinary = sabhi devices ka common record) ----------
 function setupCode(){ return "DRYFU-" + btoa(JSON.stringify({ c: settings.cloudName, p: settings.cloudPreset })); }
 function applySetupCode(code){
   try {
     const o = JSON.parse(atob(decodeURIComponent(code).replace(/^DRYFU-/, "")));
     if (!o.c || !o.p) return false;
-    settings = { ...settings, provider: "cloudinary", cloudName: o.c, cloudPreset: o.p };
-    save(LS_SET, settings); return true;
+    settings = { ...settings, provider: "cloudinary", cloudName: o.c, cloudPreset: o.p }; save(LS_SET, settings); return true;
   } catch { return false; }
 }
-function updateConn(msg, cls){
-  const el = $("#connStatus");
-  $("#settingsTitle").textContent = isConfigured() ? "⚙️ Settings (is device par setup ho chuka hai ✔)" : "⚙️ Settings: pehli baar yahan Cloudinary details daalein";
-  if (msg) { el.textContent = msg; el.className = cls || ""; return; }
-  if (!isConfigured()) { el.textContent = "⚠️ Is device par setup baaki hai: Settings bhariye ya dusre device se jodiye"; el.className = "err"; }
-  else if (settings.provider === "imgbb") { el.textContent = "✔ ImgBB connected (sync band: list sirf is device par)"; el.className = "ok"; }
-  else { el.textContent = "✔ Cloudinary connected: " + settings.cloudName; el.className = "ok"; }
-  $("#syncBtn").hidden = $("#shareBtn").hidden = !(isConfigured() && settings.provider === "cloudinary");
+function renderShare(){
+  const card = $("#shareCard"); const show = isConfigured() && settings.provider === "cloudinary";
+  card.hidden = !show; if (!show) return;
+  const link = (location.protocol === "file:" ? APP_URL : location.origin + location.pathname) + "#setup=" + encodeURIComponent(setupCode());
+  if ($("#shareLink").textContent === link) return;
+  $("#shareLink").textContent = link;
+  const q = $("#qr"); q.innerHTML = "";
+  if (window.QRCode) new QRCode(q, { text: link, width: 170, height: 170, correctLevel: QRCode.CorrectLevel.M }); else q.hidden = true;
 }
+$("#copyLink").addEventListener("click", () => copy($("#shareLink").textContent, "Link"));
+$("#copyCode").addEventListener("click", () => copy(setupCode(), "Setup code"));
+
+function updateConn(msg, cls){
+  const el = $("#connStatus"), dot = $("#syncDot");
+  $("#setupBanner").hidden = isConfigured();
+  $("#syncBtn").hidden = !(isConfigured() && settings.provider === "cloudinary");
+  if (msg) { el.textContent = msg; el.className = "status " + (cls||""); dot.hidden = false; dot.className = "dot" + (cls === "err" ? " err" : ""); return; }
+  dot.hidden = true;
+  if (!isConfigured()) { el.textContent = "⚠️ Is device par setup baaki hai"; el.className = "status err"; }
+  else if (settings.provider === "imgbb") { el.textContent = "✔ ImgBB connected"; el.className = "status ok"; }
+  else { el.textContent = "✔ Cloudinary connected: " + settings.cloudName; el.className = "status ok"; }
+}
+
+// ---------- sync ----------
 let syncing = false;
 async function syncCloud(quiet){
   if (syncing || settings.provider !== "cloudinary" || !isConfigured()) return;
-  syncing = true; if (!quiet) updateConn("🔄 Sync ho raha hai…");
+  syncing = true; $("#syncBtn").classList.add("spin");
   try {
     const r = await fetch(`https://res.cloudinary.com/${encodeURIComponent(settings.cloudName)}/image/list/dryfu.json?t=${Date.now()}`, { cache: "no-store" });
     let list = [];
@@ -377,59 +446,216 @@ async function syncCloud(quiet){
     else if (r.status !== 404) throw new Error("HTTP " + r.status);
     const base = `https://res.cloudinary.com/${settings.cloudName}/image/upload/`;
     const cloud = list.map(x => {
-      const ctx = x.context?.custom || {};
-      const file = `v${x.version}/${x.public_id}.${x.format}`;
+      const ctx = x.context?.custom || {}; const file = `v${x.version}/${x.public_id}.${x.format}`;
       return { id: "c:" + x.public_id, publicId: x.public_id, provider: "cloudinary",
-        name: ctx.alt || x.public_id.split("/").pop().replace(/-[a-z0-9]{6,9}$/, ""),
-        category: ctx.category || "", date: x.created_at, width: x.width, height: x.height,
+        name: ctx.alt || x.public_id.split("/").pop().replace(/-[a-z0-9]{6,9}$/, ""), category: ctx.category || "",
+        date: x.created_at, width: x.width, height: x.height,
         url: base + "f_auto,q_auto/" + file, thumb: base + "c_fill,w_400,h_400,f_auto,q_auto/" + file, original: base + file };
     });
     const seen = new Set(cloud.map(c => c.publicId));
-    // abhi-abhi upload hui photos Cloudinary list mein ~1 min baad aati hain, tab tak unhe rakhein
     const recent = photos.filter(p => p.provider === "cloudinary" && p.publicId && !seen.has(p.publicId) && Date.now() - new Date(p.date) < 5*60*1000);
     const others = photos.filter(p => p.provider !== "cloudinary");
     photos = [...recent, ...cloud, ...others].sort((a,b) => new Date(b.date) - new Date(a.date));
     save(LS_PHOTOS, photos); render();
-    updateConn("✔ Cloudinary connected · sync " + new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"}), "ok");
+    updateConn();
+    $("#syncInfo").textContent = "Aakhri sync: " + new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"}) + " · " + cloud.length + " photos Cloudinary par";
+    if (!quiet) snack("Sync ho gaya ✔");
   } catch (e) {
-    if (e.message === "list-band") updateConn("⚠️ Sync band hai: Cloudinary → Settings → Security → \"Restricted image types\" mein \"Resource list\" ka tick hatayein", "err");
-    else updateConn("⚠️ Sync nahi hua (internet check karein). Purani list dikh rahi hai.", "err");
-  } finally { syncing = false; }
+    if (e.message === "list-band") updateConn("⚠️ Sync band: Cloudinary → Settings → Security → Restricted image types → \"Resource list\" ka tick hatayein", "err");
+    else updateConn("⚠️ Sync nahi hua, internet check karein", "err");
+    if (!quiet) snack("Sync nahi hua, Settings dekhein");
+  } finally { syncing = false; $("#syncBtn").classList.remove("spin"); }
 }
 $("#syncBtn").addEventListener("click", () => syncCloud());
-$("#shareBtn").addEventListener("click", () => {
-  const panel = $("#sharePanel"); panel.hidden = !panel.hidden; if (panel.hidden) return;
-  const link = (location.protocol === "file:" ? APP_URL : location.origin + location.pathname) + "#setup=" + encodeURIComponent(setupCode());
-  $("#shareLink").textContent = link;
-  const q = $("#qr"); q.innerHTML = "";
-  if (window.QRCode) new QRCode(q, { text: link, width: 180, height: 180, correctLevel: QRCode.CorrectLevel.M });
-  else q.hidden = true;
-});
-$("#copyLink").addEventListener("click", () => copy($("#shareLink").textContent, "Link"));
-$("#copyCode").addEventListener("click", () => copy(setupCode(), "Setup code"));
 document.addEventListener("visibilitychange", () => { if (!document.hidden) syncCloud(true); });
 
-// link se aaye to (#setup=...) settings apne aap save
-if (location.hash.startsWith("#setup=")) {
-  if (applySetupCode(location.hash.slice(7))) toast("Device jud gaya ✔");
-  history.replaceState(null, "", location.pathname);
+// ---------- render: photos ----------
+function dayLabel(d){
+  const dt = new Date(d), today = new Date(); const y = new Date(); y.setDate(today.getDate()-1);
+  const same = (a,b) => a.toDateString() === b.toDateString();
+  if (same(dt,today)) return "Aaj";
+  if (same(dt,y)) return "Kal";
+  return dt.toLocaleDateString("en-IN", { weekday:"short", day:"numeric", month:"short", year: dt.getFullYear() === today.getFullYear() ? undefined : "numeric" });
 }
-fillSettings(); updateConn(); render(); syncCloud();
+function categories(){
+  const m = new Map();
+  photos.forEach(p => { const c = p.category || "Bina category"; if (!m.has(c)) m.set(c, []); m.get(c).push(p); });
+  return [...m.entries()].sort((a,b) => b[1].length - a[1].length);
+}
+function render(){
+  const q = $("#search").value.trim().toLowerCase();
+  visible = photos.filter(p => (!filterCat || (p.category || "Bina category") === filterCat) && (!q || (p.name + " " + (p.category||"")).toLowerCase().includes(q)));
+  // chips
+  const cats = categories();
+  $("#chips").innerHTML = cats.length ? [`<button class="chip" data-cat="" aria-pressed="${!filterCat}">Sab (${photos.length})</button>`, ...cats.map(([c,l]) => `<button class="chip" data-cat="${esc(c)}" aria-pressed="${filterCat===c}">${esc(c)} · ${l.length}</button>`)].join("") : "";
+  // timeline
+  const tl = $("#timeline");
+  if (!visible.length) {
+    tl.innerHTML = photos.length
+      ? `<div class="empty"><h2>Kuch nahi mila</h2><p>Dusra naam ya category try kijiye.</p></div>`
+      : `<div class="empty">
+          <svg viewBox="0 0 160 120" aria-hidden="true"><rect x="18" y="22" width="92" height="74" rx="12" fill="var(--surface2)"/><rect x="48" y="12" width="94" height="76" rx="12" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2"/><ellipse cx="95" cy="50" rx="14" ry="20" fill="var(--accent)" opacity=".85"/><path d="M95 34v32" stroke="var(--accent-soft)" stroke-width="2"/></svg>
+          <h2>Abhi koi photo nahi hai</h2><p>Neeche <b>Upload</b> dabaiye ya photos yahan drag kijiye.</p></div>`;
+  } else {
+    const groups = [];
+    visible.forEach(p => { const l = dayLabel(p.date); const g = groups[groups.length-1]; if (g && g.l === l) g.items.push(p); else groups.push({ l, items:[p] }); });
+    tl.innerHTML = groups.map(g => `<section class="day"><h3>${esc(g.l)}<small>${g.items.length} photo</small></h3><div class="grid">${
+      g.items.map(p => `<button class="tile" data-id="${esc(p.id)}" aria-label="${esc(p.name)}"><img src="${esc(p.thumb || p.url)}" alt="${esc(p.name)}" loading="lazy">${p.pending ? '<span class="pending">Upload…</span>' : `<span class="quick" data-quick="1"><svg class="ico" style="width:14px;height:14px"><use href="#i-link"/></svg>Link</span>`}</button>`).join("")
+    }</div></section>`).join("");
+  }
+  // categories view
+  $("#cats").innerHTML = cats.length ? cats.map(([c,l]) => `<button class="cat" data-cat="${esc(c)}"><span class="cover"><img src="${esc(l[0].thumb || l[0].url)}" alt="" loading="lazy"></span><b>${esc(c)}</b><small>${l.length} photo</small></button>`).join("")
+    : `<div class="empty" style="grid-column:1/-1"><h2>Koi category nahi</h2><p>Upload karte waqt category chuniye (Kaju, Badam…).</p></div>`;
+}
+$("#search").addEventListener("input", () => { if (location.hash !== "#photos" && location.hash) location.hash = "#photos"; render(); });
+$("#chips").addEventListener("click", e => { const c = e.target.closest(".chip"); if (!c) return; filterCat = c.dataset.cat; render(); });
+$("#cats").addEventListener("click", e => { const c = e.target.closest(".cat"); if (!c) return; filterCat = c.dataset.cat; location.hash = "#photos"; render(); });
+$("#timeline").addEventListener("click", e => {
+  const t = e.target.closest(".tile"); if (!t) return;
+  const p = photos.find(x => x.id === t.dataset.id); if (!p || p.pending) return;
+  if (e.target.closest("[data-quick]")) return copy(p.url, "Link");
+  openViewer(visible.indexOf(p));
+});
 
-// ---------- app install (PWA) ----------
-if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
+// ---------- viewer ----------
+let vIndex = -1;
+function openViewer(i){ vIndex = i; $("#viewer").hidden = false; document.body.style.overflow = "hidden"; showV(); }
+function closeViewer(){ $("#viewer").hidden = true; document.body.style.overflow = ""; vIndex = -1; resetDel(); }
+function showV(){
+  const p = visible[vIndex]; if (!p) return closeViewer();
+  $("#vImg").src = p.url; $("#vImg").alt = p.name;
+  $("#vName").textContent = p.name;
+  $("#vMeta").textContent = [p.category, p.width ? `${p.width}×${p.height}` : "", new Date(p.date).toLocaleDateString("en-IN")].filter(Boolean).join(" · ");
+  $("#vPrev").hidden = vIndex <= 0; $("#vNext").hidden = vIndex >= visible.length - 1;
+  resetDel();
 }
+const step = d => { const n = vIndex + d; if (n >= 0 && n < visible.length) { vIndex = n; showV(); } };
+$("#vClose").addEventListener("click", closeViewer);
+$("#vPrev").addEventListener("click", () => step(-1));
+$("#vNext").addEventListener("click", () => step(1));
+document.addEventListener("keydown", e => {
+  if (!$("#viewer").hidden) { if (e.key === "Escape") closeViewer(); if (e.key === "ArrowLeft") step(-1); if (e.key === "ArrowRight") step(1); }
+  else if (!$("#uploadSheet").hidden && e.key === "Escape") closeSheet();
+});
+let sx = null;
+$("#vImgWrap").addEventListener("touchstart", e => sx = e.touches[0].clientX, { passive:true });
+$("#vImgWrap").addEventListener("touchend", e => { if (sx == null) return; const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 50) step(dx < 0 ? 1 : -1); sx = null; });
+function resetDel(){ const b = document.querySelector('.vact[data-act="del"]'); b.dataset.confirm = ""; b.querySelector("span").textContent = "Hatao"; }
+document.querySelector(".vbot").addEventListener("click", e => {
+  const b = e.target.closest(".vact"); if (!b) return; const p = visible[vIndex]; if (!p) return;
+  const act = b.dataset.act;
+  if (act === "url") copy(p.url, "Link");
+  if (act === "html") copy(`<img src="${p.url}" alt="${(p.category ? p.category + " - " : "") + p.name}" loading="lazy"${p.width ? ` width="${p.width}" height="${p.height}"` : ""}>`, "HTML code");
+  if (act === "open") window.open(p.url, "_blank", "noopener");
+  if (act === "del") {
+    if (p.provider === "cloudinary") { snack("Cloudinary Media Library mein delete karke Sync dabaiye"); window.open("https://console.cloudinary.com/console/media_library", "_blank", "noopener"); return; }
+    if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.querySelector("span").textContent = "Pakka?"; return; }
+    photos = photos.filter(x => x.id !== p.id); save(LS_PHOTOS, photos); render();
+    if (p.deleteUrl) window.open(p.deleteUrl, "_blank", "noopener");
+    snack("Hata diya"); closeViewer();
+  }
+});
+
+// ---------- upload ----------
+let pendingFiles = [];
+function openSheet(files){
+  pendingFiles = [...files].filter(f => f.type.startsWith("image/"));
+  if (!pendingFiles.length) return;
+  if (!isConfigured()) { snack("Pehle Settings mein setup kijiye"); location.hash = "#settings"; return; }
+  $("#previews").innerHTML = ""; pendingFiles.slice(0, 20).forEach(f => { const im = new Image(); im.src = URL.createObjectURL(f); im.onload = () => URL.revokeObjectURL(im.src); $("#previews").appendChild(im); });
+  $("#upTitle").textContent = pendingFiles.length === 1 ? "1 photo upload karein" : `${pendingFiles.length} photos upload karein`;
+  const presets = ["Badam","Kaju","Pista","Akhrot","Kishmish","Gift Box","Banner"];
+  const all = [...new Set([...categories().map(c => c[0]).filter(c => c !== "Bina category"), ...presets])];
+  $("#category").value = filterCat && filterCat !== "Bina category" ? filterCat : "";
+  $("#upChips").innerHTML = all.map(c => `<button class="chip" type="button" data-c="${esc(c)}" aria-pressed="${$("#category").value === c}">${esc(c)}</button>`).join("");
+  $("#uploadSheet").hidden = false; document.body.style.overflow = "hidden";
+}
+function closeSheet(){ $("#uploadSheet").hidden = true; document.body.style.overflow = ""; pendingFiles = []; }
+$("#upChips").addEventListener("click", e => { const c = e.target.closest(".chip"); if (!c) return; const on = c.getAttribute("aria-pressed") !== "true"; $("#category").value = on ? c.dataset.c : ""; $("#upChips").querySelectorAll(".chip").forEach(x => x.setAttribute("aria-pressed", x === c && on)); });
+$("#category").addEventListener("input", () => $("#upChips").querySelectorAll(".chip").forEach(x => x.setAttribute("aria-pressed", x.dataset.c === $("#category").value.trim())));
+$("#upCancel").addEventListener("click", closeSheet);
+$("#uploadSheet").addEventListener("click", e => { if (e.target.id === "uploadSheet") closeSheet(); });
+$("#upGo").addEventListener("click", () => { const files = pendingFiles, cat = $("#category").value.trim(), nm = $("#photoName").value.trim(); closeSheet(); $("#photoName").value = ""; doUpload(files, cat, nm); });
+
+async function uploadOne(file, name, cat){
+  if (settings.provider === "imgbb") {
+    const fd = new FormData(); fd.append("image", file); fd.append("name", name);
+    const r = await fetch("https://api.imgbb.com/1/upload?key=" + encodeURIComponent(settings.imgbbKey), { method:"POST", body:fd });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.success) throw new Error(j?.error?.message || ("ImgBB error " + r.status));
+    return { url: j.data.url, thumb: j.data.thumb?.url || j.data.display_url, deleteUrl: j.data.delete_url, provider:"imgbb", width:j.data.width, height:j.data.height };
+  }
+  const fd = new FormData();
+  fd.append("file", file); fd.append("upload_preset", settings.cloudPreset); fd.append("folder", "dryfu");
+  fd.append("public_id", name + "-" + Date.now().toString(36)); fd.append("tags", "dryfu");
+  fd.append("context", `alt=${name}|category=${cat.replace(/[|=]/g," ")}`);
+  const r = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(settings.cloudName)}/image/upload`, { method:"POST", body:fd });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j?.error?.message || ("Cloudinary error " + r.status));
+  return { url: j.secure_url.replace("/upload/", "/upload/f_auto,q_auto/"), thumb: j.secure_url.replace("/upload/", "/upload/c_fill,w_400,h_400,f_auto,q_auto/"), original: j.secure_url, provider:"cloudinary", publicId: j.public_id, width:j.width, height:j.height };
+}
+async function doUpload(files, cat, baseName){
+  let done = 0, failed = 0, lastErr = "";
+  location.hash = "#photos";
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    const name = slug(baseName ? (files.length > 1 ? `${baseName}-${i+1}` : baseName) : f.name);
+    const tmp = { id: "tmp" + Date.now() + i, name, category: cat, date: new Date().toISOString(), thumb: URL.createObjectURL(f), url: "", pending: true };
+    photos.unshift(tmp); render();
+    snack(`Upload ho raha hai ${i+1}/${files.length}…`, i / files.length);
+    try {
+      const res = await uploadOne(f, name, cat);
+      Object.assign(tmp, res, { id: res.publicId ? "c:" + res.publicId : "i:" + Date.now() + i, pending: false });
+      done++;
+    } catch (e) { failed++; lastErr = e.message; photos = photos.filter(p => p !== tmp); }
+    save(LS_PHOTOS, photos.filter(p => !p.pending)); render();
+  }
+  snack(failed ? `${done} upload hui, ${failed} fail: ${lastErr}` : `${done} photo upload ho gayi ✔`);
+  setTimeout(() => syncCloud(true), 70000);
+}
+const fileInput = $("#fileInput");
+$("#fab").addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => { openSheet(fileInput.files); fileInput.value = ""; });
+let dragDepth = 0;
+window.addEventListener("dragenter", e => { if ([...e.dataTransfer.types].includes("Files")) { dragDepth++; $("#dropOverlay").hidden = false; } });
+window.addEventListener("dragleave", () => { if (--dragDepth <= 0) { dragDepth = 0; $("#dropOverlay").hidden = true; } });
+window.addEventListener("dragover", e => e.preventDefault());
+window.addEventListener("drop", e => { e.preventDefault(); dragDepth = 0; $("#dropOverlay").hidden = true; if (e.dataTransfer.files.length) openSheet(e.dataTransfer.files); });
+document.addEventListener("paste", e => { if (e.clipboardData?.files?.length) openSheet(e.clipboardData.files); });
+
+// ---------- backup ----------
+$("#exportBtn").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify({ app:"dryfu-photo-manager", exported:new Date().toISOString(), photos: photos.filter(p => !p.pending) }, null, 2)], { type:"application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `dryfu-photos-backup-${new Date().toISOString().slice(0,10)}.json`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+$("#importFile").addEventListener("change", async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const j = JSON.parse(await f.text()); const incoming = Array.isArray(j) ? j : j.photos; if (!Array.isArray(incoming)) throw 0;
+    const ids = new Set(photos.map(p => p.id)); const added = incoming.filter(p => p && p.url && !ids.has(p.id));
+    photos = [...added, ...photos].sort((a,b) => new Date(b.date) - new Date(a.date)); save(LS_PHOTOS, photos); render();
+    snack(`${added.length} photos restore ho gayi ✔`);
+  } catch { snack("Ye backup file sahi nahi hai"); }
+  e.target.value = "";
+});
+
+// ---------- install (PWA) ----------
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
 let deferredPrompt = null;
 const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
-window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferredPrompt = e; if (!standalone) $("#installBtn").hidden = false; });
-$("#installBtn").addEventListener("click", async () => {
-  if (!deferredPrompt) return;
-  deferredPrompt.prompt(); await deferredPrompt.userChoice.catch(() => {});
-  deferredPrompt = null; $("#installBtn").hidden = true;
-});
-window.addEventListener("appinstalled", () => { $("#installBtn").hidden = true; toast("App install ho gaya ✔"); });
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferredPrompt = e; if (!standalone) $("#installBtn").hidden = $("#installBtn2").hidden = false; });
+async function install(){ if (!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice.catch(() => {}); deferredPrompt = null; $("#installBtn").hidden = $("#installBtn2").hidden = true; }
+$("#installBtn").addEventListener("click", install); $("#installBtn2").addEventListener("click", install);
+window.addEventListener("appinstalled", () => snack("App install ho gaya ✔"));
 if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !standalone) $("#iosHint").hidden = false;
+
+// ---------- start ----------
+if (location.hash.startsWith("#setup=")) {
+  if (applySetupCode(location.hash.slice(7))) setTimeout(() => snack("Device jud gaya ✔"), 300);
+  history.replaceState(null, "", location.pathname + "#photos");
+}
+fillSettings(); updateConn(); render(); route(); syncCloud(true);
 </script>
 </body>
 </html>
