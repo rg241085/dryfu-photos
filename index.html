@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dryfu Photo Manager</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#8a4b1f">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Dryfu Photos">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Mukta:wght@400;500;700&family=JetBrains+Mono:wght@400&display=swap">
+<style>
+/* Layout: top bar, upload panel, then a grid of photo cards with copy buttons */
+:root{
+  --bg:#f7f3ee; --card:#fffdfa; --ink:#2b2118; --muted:#7a6a5c; --line:#e6dccf;
+  --accent:#8a4b1f; --accent-ink:#fff; --good:#2f7a3b; --bad:#b3261e;
+  --display:"Fraunces",Georgia,serif; --body:"Mukta",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#1b1612; --card:#251e18; --ink:#f1e8de; --muted:#b3a291; --line:#3a2f26;
+  --accent:#d9925a; --accent-ink:#1b1612; --good:#6fc27c; --bad:#ff8a80; color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--body)}
+.wrap{max-width:1100px;margin:0 auto;padding:calc(20px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(60px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:grid;gap:20px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+h1{font-family:var(--display);font-size:28px;margin:0;color:var(--accent)}
+h1 small{display:block;font-family:var(--body);font-size:14px;color:var(--muted);font-weight:400}
+h2{font-size:18px;margin:0 0 10px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+button,.btn{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 14px;border-radius:8px;cursor:pointer}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:disabled{opacity:.5;cursor:not-allowed}
+label{display:grid;gap:4px;font-size:14px;color:var(--muted)}
+input,select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);width:100%}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
+.row>label{flex:1 1 200px}
+#drop{border:2px dashed var(--line);border-radius:12px;padding:30px 16px;text-align:center;cursor:pointer;transition:.15s}
+#drop.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+#drop strong{color:var(--accent)}
+.hint{font-size:14px;color:var(--muted)}
+#status{font-size:14px;min-height:1.5em}
+.ok{color:var(--good)} .err{color:var(--bad)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.card img{width:100%;aspect-ratio:1;object-fit:cover;background:var(--line);display:block}
+.card .meta{padding:10px;display:grid;gap:6px;min-width:0}
+.card .name{font-weight:700;overflow-wrap:anywhere}
+.tag{display:inline-block;font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:0 8px;color:var(--muted)}
+.url{font:12px var(--mono);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px;overflow-wrap:anywhere;user-select:all}
+.acts{display:flex;flex-wrap:wrap;gap:6px}
+.acts button{padding:5px 9px;font-size:13px}
+.empty{text-align:center;color:var(--muted);padding:30px}
+details summary{cursor:pointer;font-weight:700}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:8px;opacity:0;transition:.2s;pointer-events:none}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Dryfu Photo Manager<small>Business photos upload karo, link copy karo, dryfu.in par lagao</small></h1>
+    <div class="acts">
+      <button id="installBtn" class="primary" type="button" hidden>📲 App install karein</button>
+      <button id="exportBtn" type="button">Backup download</button>
+      <label class="btn" style="display:inline-block;color:var(--ink)">Backup restore<input id="importFile" type="file" accept=".json" hidden></label>
+    </div>
+  </header>
+
+  <p id="iosHint" class="panel hint" hidden>iPhone par install: Safari mein neeche <b>Share</b> button dabaiye → <b>Add to Home Screen</b>.</p>
+
+  <details class="panel" id="settingsBox">
+    <summary>⚙️ Settings (pehli baar yahan API key daalein)</summary>
+    <div style="display:grid;gap:12px;margin-top:12px">
+      <label>Photo kahan save ho?
+        <select id="provider">
+          <option value="imgbb">ImgBB (sabse aasaan, free)</option>
+          <option value="cloudinary">Cloudinary (professional, fast CDN, 25 GB free)</option>
+        </select>
+      </label>
+      <div id="imgbbFields">
+        <label>ImgBB API key <input id="imgbbKey" type="password" placeholder="api.imgbb.com se key copy karke yahan paste karein"></label>
+        <p class="hint">Key kaise milegi: imgbb.com par free account banaiye → api.imgbb.com kholiye → "Get API key" → copy.</p>
+      </div>
+      <div id="cloudFields" hidden>
+        <div class="row">
+          <label>Cloud name <input id="cloudName" placeholder="jaise: dryfu"></label>
+          <label>Upload preset (Unsigned) <input id="cloudPreset" placeholder="jaise: dryfu_upload"></label>
+        </div>
+        <p class="hint">Cloudinary dashboard → Settings → Upload → Upload presets → "Add upload preset" → Signing mode: <b>Unsigned</b> → save. Cloud name dashboard ke upar likha hota hai.</p>
+      </div>
+      <div><button class="primary" id="saveSettings" type="button">Settings save karein</button></div>
+    </div>
+  </details>
+
+  <section class="panel">
+    <h2>Naya photo upload</h2>
+    <div class="row" style="margin-bottom:12px">
+      <label>Category
+        <input id="category" list="cats" placeholder="jaise: Badam, Kaju, Pista, Banner">
+        <datalist id="cats"><option>Badam</option><option>Kaju</option><option>Pista</option><option>Akhrot</option><option>Kishmish</option><option>Gift Box</option><option>Banner</option><option>Logo</option></datalist>
+      </label>
+      <label>Photo ka naam (optional)
+        <input id="photoName" placeholder="jaise: kaju-w240-500g">
+      </label>
+    </div>
+    <div id="drop" tabindex="0" role="button" aria-label="Photo chuniye">
+      <strong>Yahan click karein</strong> ya photos drag karke chhodein<br>
+      <span class="hint">Ek saath kai photos chun sakte hain · JPG, PNG, WEBP, GIF · max 32 MB (ImgBB)</span>
+      <input id="fileInput" type="file" accept="image/*" multiple hidden>
+    </div>
+    <p id="status"></p>
+  </section>
+
+  <section>
+    <div class="row" style="margin-bottom:12px;justify-content:space-between">
+      <h2 style="margin:0">Meri photos (<span id="count">0</span>)</h2>
+      <label style="flex:0 1 280px">Dhoondhein <input id="search" placeholder="naam ya category"></label>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+</div>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const LS_SET = "dryfu_settings", LS_PHOTOS = "dryfu_photos";
+const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+let settings = load(LS_SET, { provider: "imgbb", imgbbKey: "", cloudName: "", cloudPreset: "" });
+let photos = load(LS_PHOTOS, []);
+
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),1800); }
+function setStatus(msg, cls=""){ const s=$("#status"); s.textContent=msg; s.className=cls; }
+
+// ---------- settings ----------
+function fillSettings(){
+  $("#provider").value = settings.provider;
+  $("#imgbbKey").value = settings.imgbbKey;
+  $("#cloudName").value = settings.cloudName;
+  $("#cloudPreset").value = settings.cloudPreset;
+  toggleProvider();
+  if (!isConfigured()) $("#settingsBox").open = true;
+}
+function toggleProvider(){
+  const p = $("#provider").value;
+  $("#imgbbFields").hidden = p !== "imgbb";
+  $("#cloudFields").hidden = p !== "cloudinary";
+}
+function isConfigured(){
+  return settings.provider === "imgbb" ? !!settings.imgbbKey : !!(settings.cloudName && settings.cloudPreset);
+}
+$("#provider").addEventListener("change", toggleProvider);
+$("#saveSettings").addEventListener("click", () => {
+  settings = {
+    provider: $("#provider").value,
+    imgbbKey: $("#imgbbKey").value.trim(),
+    cloudName: $("#cloudName").value.trim(),
+    cloudPreset: $("#cloudPreset").value.trim()
+  };
+  save(LS_SET, settings);
+  toast(isConfigured() ? "Settings save ho gayi ✔" : "Kuch fields khaali hain");
+  if (isConfigured()) $("#settingsBox").open = false;
+});
+
+// ---------- upload ----------
+const slug = s => s.toLowerCase().replace(/\.[a-z0-9]+$/,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,60) || "photo";
+
+async function uploadOne(file, name){
+  if (settings.provider === "imgbb") {
+    const fd = new FormData();
+    fd.append("image", file);
+    fd.append("name", name);
+    const r = await fetch("https://api.imgbb.com/1/upload?key=" + encodeURIComponent(settings.imgbbKey), { method:"POST", body:fd });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.success) throw new Error(j?.error?.message || ("ImgBB error " + r.status));
+    return { url: j.data.url, thumb: j.data.thumb?.url || j.data.display_url, deleteUrl: j.data.delete_url, provider:"imgbb", width:j.data.width, height:j.data.height };
+  } else {
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("upload_preset", settings.cloudPreset);
+    fd.append("folder", "dryfu");
+    fd.append("public_id", name + "-" + Date.now().toString(36));
+    const r = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(settings.cloudName)}/image/upload`, { method:"POST", body:fd });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j?.error?.message || ("Cloudinary error " + r.status));
+    // f_auto,q_auto = har browser ko chhota, fast format (webp/avif) milega
+    const optimized = j.secure_url.replace("/upload/", "/upload/f_auto,q_auto/");
+    const thumb = j.secure_url.replace("/upload/", "/upload/c_fill,w_400,h_400,f_auto,q_auto/");
+    return { url: optimized, thumb, original: j.secure_url, provider:"cloudinary", width:j.width, height:j.height };
+  }
+}
+
+async function handleFiles(list){
+  const files = [...list].filter(f => f.type.startsWith("image/"));
+  if (!files.length) return;
+  if (!isConfigured()) { $("#settingsBox").open = true; setStatus("Pehle Settings mein API key daalein.", "err"); return; }
+  const cat = $("#category").value.trim();
+  const baseName = $("#photoName").value.trim();
+  let done = 0, failed = 0;
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    const name = slug(baseName ? (files.length > 1 ? `${baseName}-${i+1}` : baseName) : f.name);
+    setStatus(`Upload ho raha hai ${i+1}/${files.length}: ${f.name} …`);
+    try {
+      const res = await uploadOne(f, name);
+      photos.unshift({ id: crypto.randomUUID?.() || String(Date.now()+Math.random()), name, category: cat, date: new Date().toISOString(), ...res });
+      save(LS_PHOTOS, photos); render(); done++;
+    } catch (e) {
+      failed++; setStatus(`${f.name} upload nahi hua: ${e.message}`, "err");
+    }
+  }
+  if (!failed) setStatus(`${done} photo upload ho gayi ✔ Neeche se link copy karein.`, "ok");
+  else setStatus(`${done} upload hui, ${failed} fail. Internet ya API key check karein.`, "err");
+  $("#photoName").value = "";
+}
+
+const drop = $("#drop"), fileInput = $("#fileInput");
+drop.addEventListener("click", () => fileInput.click());
+drop.addEventListener("keydown", e => { if (e.key==="Enter"||e.key===" ") { e.preventDefault(); fileInput.click(); } });
+fileInput.addEventListener("change", () => { handleFiles(fileInput.files); fileInput.value=""; });
+["dragenter","dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave","drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => handleFiles(e.dataTransfer.files));
+document.addEventListener("paste", e => { if (e.clipboardData?.files?.length) handleFiles(e.clipboardData.files); });
+
+// ---------- gallery ----------
+async function copy(text, label){
+  try { await navigator.clipboard.writeText(text); toast(label + " copy ho gaya ✔"); }
+  catch {
+    const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); toast(label + " copy ho gaya ✔"); } catch { toast("Copy nahi hua, link select karke copy karein"); }
+    ta.remove();
+  }
+}
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+function render(){
+  const q = $("#search").value.trim().toLowerCase();
+  const list = photos.filter(p => !q || (p.name + " " + (p.category||"")).toLowerCase().includes(q));
+  $("#count").textContent = photos.length;
+  const grid = $("#grid");
+  if (!list.length) {
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1">${photos.length ? "Is search se koi photo nahi mili." : "Abhi koi photo nahi hai. Upar se pehli photo upload karein."}</div>`;
+    return;
+  }
+  grid.innerHTML = list.map(p => `
+    <article class="card" data-id="${esc(p.id)}">
+      <img src="${esc(p.thumb || p.url)}" alt="${esc(p.name)}" loading="lazy">
+      <div class="meta">
+        <div class="name">${esc(p.name)}</div>
+        <div>${p.category ? `<span class="tag">${esc(p.category)}</span> ` : ""}<span class="tag">${esc(p.provider)}</span> <span class="tag">${new Date(p.date).toLocaleDateString("en-IN")}</span></div>
+        <div class="url">${esc(p.url)}</div>
+        <div class="acts">
+          <button data-act="url" type="button">Link copy</button>
+          <button data-act="html" type="button">&lt;img&gt; code copy</button>
+          <button data-act="open" type="button">Kholein</button>
+          <button data-act="del" type="button">Hatao</button>
+        </div>
+      </div>
+    </article>`).join("");
+}
+$("#search").addEventListener("input", render);
+$("#grid").addEventListener("click", e => {
+  const b = e.target.closest("button[data-act]"); if (!b) return;
+  const id = b.closest(".card").dataset.id;
+  const p = photos.find(x => x.id === id); if (!p) return;
+  const act = b.dataset.act;
+  if (act === "url") copy(p.url, "Link");
+  if (act === "html") copy(`<img src="${p.url}" alt="${(p.category ? p.category + " - " : "") + p.name}" loading="lazy"${p.width ? ` width="${p.width}" height="${p.height}"` : ""}>`, "HTML code");
+  if (act === "open") window.open(p.url, "_blank", "noopener");
+  if (act === "del") {
+    if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = "Pakka? dobara dabaein"; setTimeout(() => { b.dataset.confirm=""; b.textContent="Hatao"; }, 3000); return; }
+    photos = photos.filter(x => x.id !== id); save(LS_PHOTOS, photos); render();
+    if (p.deleteUrl) { toast("List se hata diya. Server se bhi hatane ke liye delete page khul raha hai"); window.open(p.deleteUrl, "_blank", "noopener"); }
+    else toast("List se hata diya (Cloudinary Media Library se bhi delete kar sakte hain)");
+  }
+});
+
+// ---------- backup ----------
+$("#exportBtn").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify({ app:"dryfu-photo-manager", exported:new Date().toISOString(), photos }, null, 2)], { type:"application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = `dryfu-photos-backup-${new Date().toISOString().slice(0,10)}.json`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+$("#importFile").addEventListener("change", async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const j = JSON.parse(await f.text());
+    const incoming = Array.isArray(j) ? j : j.photos;
+    if (!Array.isArray(incoming)) throw 0;
+    const ids = new Set(photos.map(p => p.id));
+    const added = incoming.filter(p => p && p.url && !ids.has(p.id));
+    photos = [...added, ...photos]; save(LS_PHOTOS, photos); render();
+    toast(`${added.length} photos restore ho gayi ✔`);
+  } catch { toast("Ye backup file sahi nahi hai"); }
+  e.target.value = "";
+});
+
+fillSettings(); render();
+
+// ---------- app install (PWA) ----------
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+let deferredPrompt = null;
+const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferredPrompt = e; if (!standalone) $("#installBtn").hidden = false; });
+$("#installBtn").addEventListener("click", async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt(); await deferredPrompt.userChoice.catch(() => {});
+  deferredPrompt = null; $("#installBtn").hidden = true;
+});
+window.addEventListener("appinstalled", () => { $("#installBtn").hidden = true; toast("App install ho gaya ✔"); });
+if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !standalone) $("#iosHint").hidden = false;
+</script>
+</body>
+</html>
