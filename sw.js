@@ -1,6 +1,6 @@
 // App ki files phone mein cache hoti hain taaki app jaldi khule.
 // Upload (ImgBB/Cloudinary) hamesha internet se hi hota hai.
-const CACHE = "dryfu-photos-v8";
+const CACHE = "dryfu-photos-v9";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./config.js", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener("activate", e => {

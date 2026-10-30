@@ -96,6 +96,34 @@ main{flex:1;min-width:0;padding:0 var(--sr) calc(110px + var(--bottom)) var(--sl
 .tile:hover .quick,.tile:focus-visible .quick{opacity:1}
 .tile .pending{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.35);color:#fff;font-size:13px}
 @media (hover:none){.tile .quick{display:none}}
+/* multi-select */
+.tile{-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
+.tile .check{position:absolute;top:6px;left:6px;width:24px;height:24px;border-radius:50%;border:2px solid #fff;background:rgba(0,0,0,.28);opacity:0;transition:opacity .15s,background .15s;display:grid;place-items:center;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.tile:hover .check,body.sel .tile .check{opacity:1}
+.tile.on .check{background:var(--accent);border-color:#fff;opacity:1}
+.tile.on .check::after{content:"";width:6px;height:11px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:translate(0,-1px) rotate(45deg)}
+.tile img{transition:transform .18s,border-radius .18s}
+.tile.on{background:var(--accent-soft)}
+.tile.on img{transform:scale(.84);border-radius:10px}
+body.sel .tile:hover img{transform:none}
+body.sel .tile.on:hover img{transform:scale(.84)}
+body.sel .tile .quick{display:none}
+.day h3{display:flex;align-items:center;gap:8px}
+.daycheck{display:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--muted);place-items:center;flex:none}
+body.sel .daycheck,.day h3:hover .daycheck{display:grid}
+.daycheck.on{background:var(--accent);border-color:var(--accent)}
+.daycheck.on::after{content:"";width:5px;height:10px;border:solid var(--on-accent);border-width:0 2px 2px 0;transform:translate(0,-1px) rotate(45deg)}
+.selbar{position:fixed;top:0;left:0;right:0;z-index:30;background:var(--bg);display:flex;align-items:center;gap:10px;padding:calc(8px + var(--top)) var(--sr) 8px var(--sl);box-shadow:0 1px 0 var(--line)}
+.selbar b{font-size:18px;font-weight:600}
+.selactions{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--bg);border-top:1px solid var(--line);display:flex;justify-content:center;gap:2px;padding:6px var(--sr) calc(8px + var(--bottom)) var(--sl)}
+.sa{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;font-weight:600;color:var(--ink);padding:6px 4px;border-radius:12px;flex:1 1 0;min-width:0;max-width:110px;white-space:nowrap}
+.sa:hover{background:var(--surface)}
+.sa .ico{width:22px;height:22px;color:var(--accent)}
+.sa.danger .ico{color:var(--bad)}
+.sa:disabled{opacity:.4}
+body.sel .bottomnav,body.sel .fab{display:none!important}
+body.sel .topbar{visibility:hidden}
+
 
 .empty{display:grid;justify-items:center;text-align:center;gap:10px;padding:60px 20px;color:var(--muted)}
 .empty svg{width:140px;height:auto}
@@ -199,6 +227,9 @@ label{display:grid;gap:5px;font-size:14px;color:var(--muted)}
   <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
   <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
   <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="8" cy="8" r="1.5"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
   <symbol id="i-install" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
 </svg>
@@ -212,6 +243,21 @@ label{display:grid;gap:5px;font-size:14px;color:var(--muted)}
   <button class="iconbtn" id="installBtn" title="App install karein" hidden><svg class="ico"><use href="#i-install"/></svg></button>
   <button class="iconbtn" id="syncBtn" title="Sync"><svg class="ico"><use href="#i-sync"/></svg><span class="dot" id="syncDot" hidden></span></button>
 </header>
+
+<div class="selbar" id="selbar" hidden>
+  <button class="iconbtn" id="selClose" title="Selection band karein"><svg class="ico"><use href="#i-x"/></svg></button>
+  <b id="selCount">0 chuni gayi</b>
+  <span style="flex:1"></span>
+  <button class="pillbtn" id="selAll" type="button">Sab chuniye</button>
+</div>
+<div class="selactions" id="selActions" hidden>
+  <button class="sa" data-sa="share"><svg class="ico"><use href="#i-share"/></svg>Share</button>
+  <button class="sa" data-sa="links"><svg class="ico"><use href="#i-link"/></svg>Links copy</button>
+  <button class="sa" data-sa="html"><svg class="ico"><use href="#i-code"/></svg>HTML</button>
+  <button class="sa" data-sa="cat"><svg class="ico"><use href="#i-tag"/></svg>Category</button>
+  <button class="sa" data-sa="download"><svg class="ico"><use href="#i-download"/></svg>Download</button>
+  <button class="sa danger" data-sa="del"><svg class="ico"><use href="#i-trash"/></svg>Delete</button>
+</div>
 
 <div class="shell">
   <nav class="rail" aria-label="Menu">
@@ -338,7 +384,7 @@ label{display:grid;gap:5px;font-size:14px;color:var(--muted)}
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="edTitle">
     <div class="grab"></div>
     <h2 id="edTitle">Naam aur category badlein</h2>
-    <label>Photo ka naam (search mein isi se milegi) <input id="edName" autocomplete="off"></label>
+    <label id="edNameWrap">Photo ka naam (search mein isi se milegi) <input id="edName" autocomplete="off"></label>
     <div>
       <label for="edCat">Category</label>
       <div class="chips" id="edChips" style="padding-top:8px"></div>
@@ -348,6 +394,19 @@ label{display:grid;gap:5px;font-size:14px;color:var(--muted)}
     <div class="actions">
       <button class="pillbtn" id="edCancel" type="button">Cancel</button>
       <button class="pillbtn primary" id="edSave" type="button">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- delete confirm -->
+<div class="overlay" id="delSheet" hidden style="z-index:55">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="delTitle">
+    <div class="grab"></div>
+    <h2 id="delTitle">Photos delete karein?</h2>
+    <p id="delText" class="hint" style="font-size:15px"></p>
+    <div class="actions">
+      <button class="pillbtn" id="delCancel" type="button">Cancel</button>
+      <button class="pillbtn primary" id="delGo" type="button" style="background:var(--bad);border-color:var(--bad);color:#fff">Delete karein</button>
     </div>
   </div>
 </div>
@@ -423,6 +482,7 @@ function route(){
   VIEWS.forEach(n => $("#view-" + n).hidden = n !== v);
   document.querySelectorAll(".navitem").forEach(a => a.dataset.view === v ? a.setAttribute("aria-current","page") : a.removeAttribute("aria-current"));
   $("#fab").hidden = v === "settings";
+  if (v !== "photos" && selMode()) setSel(false);
   if (v === "settings") renderShare();
   window.scrollTo(0, 0);
 }
@@ -562,10 +622,12 @@ function render(){
   } else {
     const groups = [];
     visible.forEach(p => { const l = dayLabel(p.date); const g = groups[groups.length-1]; if (g && g.l === l) g.items.push(p); else groups.push({ l, items:[p] }); });
-    tl.innerHTML = groups.map(g => `<section class="day"><h3>${esc(g.l)}<small>${g.items.length} photo</small></h3><div class="grid">${
-      g.items.map(p => `<button class="tile" data-id="${esc(p.id)}" aria-label="${esc(p.name)}"><img src="${esc(p.thumb || p.url)}" alt="${esc(p.name)}" loading="lazy" decoding="async">${p.pending ? '<span class="pending">Upload…</span>' : `<span class="quick" data-quick="1"><svg class="ico" style="width:14px;height:14px"><use href="#i-link"/></svg>Link</span>`}</button>`).join("")
+    dayGroups = groups;
+    tl.innerHTML = groups.map((g, gi) => `<section class="day"><h3><span class="daycheck" data-day="${gi}" role="checkbox" aria-label="Poora din chuniye"></span>${esc(g.l)}<small>${g.items.length} photo</small></h3><div class="grid">${
+      g.items.map(p => `<button class="tile" data-id="${esc(p.id)}" aria-label="${esc(p.name)}"><img src="${esc(p.thumb || p.url)}" alt="${esc(p.name)}" loading="lazy" decoding="async" draggable="false">${p.pending ? '<span class="pending">Upload…</span>' : `<span class="check" data-check="1"></span><span class="quick" data-quick="1"><svg class="ico" style="width:14px;height:14px"><use href="#i-link"/></svg>Link</span>`}</button>`).join("")
     }</div></section>`).join("");
   }
+  paintSel();
   // categories view
   $("#cats").innerHTML = cats.length ? cats.map(([c,l]) => `<button class="cat" data-cat="${esc(c)}"><span class="cover"><img src="${esc(l[0].thumb || l[0].url)}" alt="" loading="lazy"></span><b>${esc(c)}</b><small>${l.length} photo</small></button>`).join("")
     : `<div class="empty" style="grid-column:1/-1"><h2>Koi category nahi</h2><p>Upload karte waqt category chuniye (Kaju, Badam…).</p></div>`;
@@ -573,11 +635,171 @@ function render(){
 $("#search").addEventListener("input", () => { if (location.hash !== "#photos" && location.hash) location.hash = "#photos"; render(); });
 $("#chips").addEventListener("click", e => { const c = e.target.closest(".chip"); if (!c) return; filterCat = c.dataset.cat; render(); });
 $("#cats").addEventListener("click", e => { const c = e.target.closest(".cat"); if (!c) return; filterCat = c.dataset.cat; location.hash = "#photos"; render(); });
-$("#timeline").addEventListener("click", e => {
+// ---------- multi-select (Google Photos style) ----------
+const sel = new Set();
+let dayGroups = [], selAnchor = null, justLong = false;
+const selMode = () => document.body.classList.contains("sel");
+const selectedList = () => photos.filter(p => sel.has(p.id));
+function setSel(on){
+  document.body.classList.toggle("sel", on);
+  $("#selbar").hidden = $("#selActions").hidden = !on;
+  if (!on) { sel.clear(); selAnchor = null; }
+  paintSel();
+}
+function paintSel(){
+  for (const id of [...sel]) if (!photos.some(p => p.id === id)) sel.delete(id);
+  document.querySelectorAll("#timeline .tile").forEach(t => t.classList.toggle("on", sel.has(t.dataset.id)));
+  document.querySelectorAll("#timeline .daycheck").forEach(d => { const g = dayGroups[+d.dataset.day]; d.classList.toggle("on", !!g && g.items.every(p => p.pending || sel.has(p.id))); });
+  $("#selCount").textContent = `${sel.size} chuni gayi`;
+  document.querySelectorAll(".sa").forEach(b => b.disabled = sel.size === 0);
+  const allOn = visible.length && visible.every(p => p.pending || sel.has(p.id));
+  $("#selAll").textContent = allOn ? "Sab hatayein" : "Sab chuniye";
+}
+function toggleSel(id, force){
+  const p = photos.find(x => x.id === id); if (!p || p.pending) return;
+  if (force ?? !sel.has(id)) sel.add(id); else sel.delete(id);
+}
+function selectRange(fromId, toId, on = true){
+  const a = visible.findIndex(p => p.id === fromId), b = visible.findIndex(p => p.id === toId);
+  if (a < 0 || b < 0) return;
+  for (let k = Math.min(a,b); k <= Math.max(a,b); k++) toggleSel(visible[k].id, on);
+}
+const tlEl = $("#timeline");
+tlEl.addEventListener("click", e => {
+  if (justLong) { justLong = false; return; }
+  const dc = e.target.closest(".daycheck");
+  if (dc) {
+    const g = dayGroups[+dc.dataset.day]; if (!g) return;
+    const on = !dc.classList.contains("on");
+    g.items.forEach(p => toggleSel(p.id, on));
+    if (!selMode()) setSel(true); paintSel(); return;
+  }
   const t = e.target.closest(".tile"); if (!t) return;
   const p = photos.find(x => x.id === t.dataset.id); if (!p || p.pending) return;
+  if (selMode() || e.target.closest("[data-check]") || e.shiftKey) {
+    if (e.shiftKey && selAnchor) selectRange(selAnchor, p.id, true); else toggleSel(p.id);
+    selAnchor = p.id;
+    if (!selMode()) setSel(true); else paintSel();
+    if (selMode() && sel.size === 0) setSel(false);
+    return;
+  }
   if (e.target.closest("[data-quick]")) return copy(p.url, "Link");
   openViewer(visible.indexOf(p));
+});
+tlEl.addEventListener("contextmenu", e => { if (e.target.closest(".tile")) e.preventDefault(); });
+
+// long-press + ungli ghuma kar kai photos chunna (mobile)
+let lp = null, drag = null, asTimer = null, asV = 0, lastTouch = null;
+function autoScroll(y){
+  asV = y < 110 ? -14 : y > innerHeight - 130 ? 14 : 0;
+  if (asV && !asTimer) asTimer = setInterval(() => { scrollBy(0, asV); if (lastTouch) dragTo(lastTouch.x, lastTouch.y); }, 16);
+  if (!asV) stopAuto();
+}
+function stopAuto(){ clearInterval(asTimer); asTimer = null; }
+function dragTo(x, y){
+  const el = document.elementFromPoint(x, y)?.closest(".tile"); if (!el || !drag) return;
+  if (el.dataset.id === drag.last) return; drag.last = el.dataset.id;
+  sel.clear(); drag.base.forEach(id => sel.add(id));
+  selectRange(drag.anchor, el.dataset.id, drag.adding); paintSel();
+}
+tlEl.addEventListener("touchstart", e => {
+  justLong = false;
+  const t = e.target.closest(".tile"); if (!t || e.touches.length > 1) return;
+  const tc = e.touches[0];
+  lp = { x: tc.clientX, y: tc.clientY, timer: setTimeout(() => {
+    lp.fired = true; justLong = true;
+    const id = t.dataset.id; const p = photos.find(x => x.id === id); if (!p || p.pending) return;
+    const base = new Set(sel), adding = !sel.has(id);
+    if (!selMode()) setSel(true);
+    toggleSel(id, adding); selAnchor = id; paintSel();
+    drag = { anchor: id, base, adding, last: id };
+    try { navigator.vibrate?.(25); } catch {}
+  }, 400) };
+}, { passive: true });
+tlEl.addEventListener("touchmove", e => {
+  const tc = e.touches[0];
+  if (lp && !lp.fired && Math.hypot(tc.clientX - lp.x, tc.clientY - lp.y) > 10) { clearTimeout(lp.timer); lp = null; }
+  if (drag) { e.preventDefault(); lastTouch = { x: tc.clientX, y: tc.clientY }; dragTo(tc.clientX, tc.clientY); autoScroll(tc.clientY); }
+}, { passive: false });
+const endTouch = () => { if (lp) clearTimeout(lp.timer); lp = null; drag = null; lastTouch = null; stopAuto(); if (selMode() && sel.size === 0) setSel(false); };
+tlEl.addEventListener("touchend", endTouch);
+tlEl.addEventListener("touchcancel", endTouch);
+
+$("#selClose").addEventListener("click", () => setSel(false));
+$("#selAll").addEventListener("click", () => {
+  const allOn = visible.every(p => p.pending || sel.has(p.id));
+  visible.forEach(p => toggleSel(p.id, !allOn)); paintSel();
+});
+
+// ek saath kaam karne ke liye: n photos ek saath (default 4)
+async function pool(items, fn, n = 4){
+  const out = new Array(items.length); let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) { const k = i++; out[k] = await fn(items[k], k); } }));
+  return out;
+}
+const htmlTag = p => `<img src="${p.url}" alt="${(p.category ? p.category + " - " : "") + p.name}" loading="lazy"${p.width ? ` width="${p.width}" height="${p.height}"` : ""}>`;
+async function fileOf(p){
+  const r = await fetch(p.original || p.url); if (!r.ok) throw new Error("HTTP " + r.status);
+  const b = await r.blob(); const ext = ((b.type.split("/")[1]) || "jpg").replace("jpeg", "jpg");
+  return new File([b], `${p.name}.${ext}`, { type: b.type || "image/jpeg" });
+}
+async function shareSel(list){
+  const links = list.map(p => p.url).join("\n");
+  if (navigator.canShare && list.length <= 20) {
+    try {
+      snack(`${list.length} photo share ke liye taiyaar ho rahi hain…`, 0);
+      let n = 0; const files = await pool(list, async p => { const f = await fileOf(p); snack(`Taiyaar: ${++n}/${list.length}`, n / list.length); return f; }, 4);
+      if (navigator.canShare({ files })) { $("#snack").hidden = true; await navigator.share({ files }); return; }
+    } catch (e) { if (e.name === "AbortError") { $("#snack").hidden = true; return; } }
+  }
+  try { if (navigator.share) { await navigator.share({ text: links }); return; } } catch (e) { if (e.name === "AbortError") return; }
+  copy(links, `${list.length} links`);
+}
+async function downloadSel(list){
+  let n = 0, fail = 0;
+  for (const p of list) {
+    try {
+      const f = await fileOf(p); const a = document.createElement("a");
+      a.href = URL.createObjectURL(f); a.download = f.name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000); n++;
+      snack(`Download: ${n}/${list.length}`, n / list.length);
+      await new Promise(r => setTimeout(r, 350));
+    } catch { fail++; }
+  }
+  snack(fail ? `${n} download hui, ${fail} nahi hui` : `${n} photo download ho gayi ✔`);
+}
+function askDelete(list){
+  const cl = list.filter(p => p.provider === "cloudinary");
+  if (cl.length && !canSign()) { snack("Delete ke liye Settings mein API Key/Secret daaliye"); return; }
+  $("#delTitle").textContent = `${list.length} photo delete karein?`;
+  $("#delText").textContent = "Ye photos Cloudinary se hamesha ke liye hat jayengi. Jis website par inka link laga hai wahan bhi photo dikhna band ho jayegi.";
+  $("#delSheet").hidden = false;
+}
+$("#delCancel").addEventListener("click", () => $("#delSheet").hidden = true);
+$("#delSheet").addEventListener("click", e => { if (e.target.id === "delSheet") $("#delSheet").hidden = true; });
+$("#delGo").addEventListener("click", async () => {
+  const list = selectedList(); $("#delSheet").hidden = true; if (!list.length) return;
+  let n = 0, fail = 0, lastErr = "";
+  snack(`Delete ho rahi hain: 0/${list.length}`, 0);
+  await pool(list, async p => {
+    try {
+      if (p.provider === "cloudinary") { await signedCall("destroy", { public_id: p.publicId, invalidate: "true" }); overrides[p.publicId] = { deleted: true, t: Date.now() }; }
+      photos = photos.filter(x => x.id !== p.id); n++;
+    } catch (e) { fail++; lastErr = e.message; }
+    snack(`Delete ho rahi hain: ${n + fail}/${list.length}`, (n + fail) / list.length);
+  }, 4);
+  save(LS_OVR, overrides); save(LS_PHOTOS, photos); setSel(false); render();
+  snack(fail ? `${n} delete hui, ${fail} nahi hui: ${lastErr}` : `${n} photo delete ho gayi`);
+});
+$("#selActions").addEventListener("click", e => {
+  const b = e.target.closest(".sa"); if (!b) return; const list = selectedList(); if (!list.length) return;
+  const a = b.dataset.sa;
+  if (a === "share") shareSel(list);
+  if (a === "links") copy(list.map(p => p.url).join("\n"), `${list.length} links`);
+  if (a === "html") copy(list.map(htmlTag).join("\n"), `${list.length} HTML code`);
+  if (a === "cat") openEdit(list);
+  if (a === "download") downloadSel(list);
+  if (a === "del") askDelete(list);
 });
 
 // ---------- viewer (swipe / zoom / swipe-down to close) ----------
@@ -737,6 +959,8 @@ document.addEventListener("keydown", e => {
   if (!$("#editSheet").hidden) { if (e.key === "Escape") closeEdit(); return; }
   if (!viewer.hidden) { if (e.key === "Escape") closeViewer(); if (e.key === "ArrowLeft") go(-1); if (e.key === "ArrowRight") go(1); }
   else if (!$("#uploadSheet").hidden && e.key === "Escape") closeSheet();
+  else if (!$("#delSheet").hidden && e.key === "Escape") $("#delSheet").hidden = true;
+  else if (selMode() && e.key === "Escape") setSel(false);
 });
 function resetDel(){ const b = document.querySelector('.vact[data-act="del"]'); b.dataset.confirm = ""; b.querySelector("span").textContent = "Hatao"; }
 document.querySelector(".vbot").addEventListener("click", e => {
@@ -782,14 +1006,20 @@ async function signedCall(endpoint, params){
 const clean = v => String(v || "").replace(/[|=]/g, " ").trim();
 
 // ---------- edit ----------
-let editing = null;
-function openEdit(p){
-  if (p.provider === "cloudinary" && !canSign()) { snack("Edit ke liye Settings mein API Key aur Secret daaliye"); closeViewer(); location.hash = "#settings"; return; }
-  editing = p;
-  $("#edName").value = p.name; $("#edCat").value = p.category || "";
+let editing = null;   // ek ya kai photos
+function openEdit(target){
+  const list = Array.isArray(target) ? target : [target];
+  if (list.some(p => p.provider === "cloudinary") && !canSign()) { snack("Edit ke liye Settings mein API Key aur Secret daaliye"); closeViewer(); setSel(false); location.hash = "#settings"; return; }
+  editing = list;
+  const one = list.length === 1;
+  $("#edNameWrap").hidden = !one;
+  $("#edTitle").textContent = one ? "Naam aur category badlein" : `${list.length} photos ki category badlein`;
+  $("#edName").value = one ? list[0].name : "";
+  const common = list.every(p => (p.category || "") === (list[0].category || "")) ? (list[0].category || "") : "";
+  $("#edCat").value = common;
   const all = [...new Set([...categories().map(c => c[0]).filter(c => c !== "Bina category"), "Badam","Kaju","Pista","Akhrot","Kishmish","Gift Box","Banner"])];
-  $("#edChips").innerHTML = all.map(c => `<button class="chip" type="button" data-c="${esc(c)}" aria-pressed="${p.category === c}">${esc(c)}</button>`).join("");
-  $("#editSheet").hidden = false; setTimeout(() => $("#edName").focus(), 50);
+  $("#edChips").innerHTML = all.map(c => `<button class="chip" type="button" data-c="${esc(c)}" aria-pressed="${common === c}">${esc(c)}</button>`).join("");
+  $("#editSheet").hidden = false; setTimeout(() => (one ? $("#edName") : $("#edCat")).focus(), 50);
 }
 const closeEdit = () => { $("#editSheet").hidden = true; editing = null; };
 $("#edChips").addEventListener("click", e => { const c = e.target.closest(".chip"); if (!c) return; const on = c.getAttribute("aria-pressed") !== "true"; $("#edCat").value = on ? c.dataset.c : ""; $("#edChips").querySelectorAll(".chip").forEach(x => x.setAttribute("aria-pressed", x === c && on)); });
@@ -797,19 +1027,27 @@ $("#edCat").addEventListener("input", () => $("#edChips").querySelectorAll(".chi
 $("#edCancel").addEventListener("click", closeEdit);
 $("#editSheet").addEventListener("click", e => { if (e.target.id === "editSheet") closeEdit(); });
 $("#edSave").addEventListener("click", async () => {
-  const p = editing; if (!p) return;
-  const name = clean($("#edName").value) || p.name, category = clean($("#edCat").value);
+  const list = editing; if (!list) return;
+  const one = list.length === 1, category = clean($("#edCat").value), newName = clean($("#edName").value);
   const btn = $("#edSave"); btn.disabled = true; btn.textContent = "Save ho raha hai…";
+  let fail = 0, lastErr = "";
   try {
-    if (p.provider === "cloudinary") {
-      await signedCall("context", { command: "add", context: `alt=${name}|category=${category}`, "public_ids[]": p.publicId });
-      overrides[p.publicId] = { name, category, t: Date.now() }; save(LS_OVR, overrides);
-    }
-    Object.assign(p, { name, category }); save(LS_PHOTOS, photos);
-    closeEdit(); render(); if (!$("#viewer").hidden) { vIndex = visible.indexOf(p); showV(); }
-    snack("Badal diya ✔ Dusre device par ~1 minute mein dikhega");
-  } catch (e) { snack("Save nahi hua: " + e.message); }
-  finally { btn.disabled = false; btn.textContent = "Save"; }
+    await pool(list, async p => {
+      const name = one ? (newName || p.name) : p.name;
+      try {
+        if (p.provider === "cloudinary") {
+          await signedCall("context", { command: "add", context: `alt=${name}|category=${category}`, "public_ids[]": p.publicId });
+          overrides[p.publicId] = { name, category, t: Date.now() };
+        }
+        Object.assign(p, { name, category });
+      } catch (e) { fail++; lastErr = e.message; }
+    }, 4);
+    save(LS_OVR, overrides); save(LS_PHOTOS, photos);
+    closeEdit(); if (selMode()) setSel(false); render();
+    if (!$("#viewer").hidden && one) { vIndex = visible.indexOf(list[0]); showV(); }
+    if (fail) snack(`${list.length - fail} badli, ${fail} nahi badli: ${lastErr}`);
+    else snack(one ? "Badal diya ✔ Dusre device par ~1 minute mein dikhega" : `${list.length} photos ki category badal di ✔`);
+  } finally { btn.disabled = false; btn.textContent = "Save"; }
 });
 
 // ---------- upload ----------
