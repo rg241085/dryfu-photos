@@ -57,6 +57,11 @@ input,select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-r
 .acts button{padding:5px 9px;font-size:13px}
 .empty{text-align:center;color:var(--muted);padding:30px}
 details summary{cursor:pointer;font-weight:700}
+.statusbar{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;padding:12px 18px}
+#connStatus{font-weight:500}
+#qr{display:inline-block;background:#fff;padding:10px;border-radius:8px;line-height:0}
+.share{display:grid;gap:12px;grid-template-columns:auto 1fr;align-items:start}
+@media (max-width:600px){.share{grid-template-columns:1fr}}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:8px;opacity:0;transition:.2s;pointer-events:none}
 #toast.show{opacity:1}
 </style>
@@ -72,15 +77,33 @@ details summary{cursor:pointer;font-weight:700}
     </div>
   </header>
 
+  <div class="panel statusbar">
+    <span id="connStatus">Setup baaki hai</span>
+    <span class="acts"><button id="syncBtn" type="button">🔄 Sync</button><button id="shareBtn" type="button">📱 Dusre device se jodein</button></span>
+  </div>
+
+  <div class="panel" id="sharePanel" hidden>
+    <h2>Dusre device (mobile/laptop) ko jodein</h2>
+    <div class="share">
+      <div id="qr"></div>
+      <div style="display:grid;gap:10px;min-width:0">
+        <p class="hint" style="margin:0">Mobile ke camera se ye QR scan kijiye, ya neeche wala link mobile par kholiye. Settings apne aap save ho jayengi aur saari photos dikhne lagengi.</p>
+        <div class="url" id="shareLink"></div>
+        <div class="acts"><button id="copyLink" type="button">Link copy</button><button id="copyCode" type="button">Setup code copy</button></div>
+        <p class="hint" style="margin:0">⚠️ Ye link/QR sirf apne devices par use karein, kisi aur ko na bhejein.</p>
+      </div>
+    </div>
+  </div>
+
   <p id="iosHint" class="panel hint" hidden>iPhone par install: Safari mein neeche <b>Share</b> button dabaiye → <b>Add to Home Screen</b>.</p>
 
   <details class="panel" id="settingsBox">
-    <summary>⚙️ Settings (pehli baar yahan API key daalein)</summary>
+    <summary id="settingsTitle">⚙️ Settings</summary>
     <div style="display:grid;gap:12px;margin-top:12px">
       <label>Photo kahan save ho?
         <select id="provider">
-          <option value="imgbb">ImgBB (sabse aasaan, free)</option>
-          <option value="cloudinary">Cloudinary (professional, fast CDN, 25 GB free)</option>
+          <option value="cloudinary">Cloudinary (laptop + mobile sync ✔)</option>
+          <option value="imgbb">ImgBB (sync nahi hota, sirf isi device par list)</option>
         </select>
       </label>
       <div id="imgbbFields">
@@ -94,6 +117,7 @@ details summary{cursor:pointer;font-weight:700}
         </div>
         <p class="hint">Cloudinary dashboard → Settings → Upload → Upload presets → "Add upload preset" → Signing mode: <b>Unsigned</b> → save. Cloud name dashboard ke upar likha hota hai.</p>
       </div>
+      <label>Ya dusre device ka Setup code yahan paste karein <input id="setupCode" placeholder="DRYFU-…"></label>
       <div><button class="primary" id="saveSettings" type="button">Settings save karein</button></div>
     </div>
   </details>
@@ -127,13 +151,16 @@ details summary{cursor:pointer;font-weight:700}
 </div>
 <div id="toast"></div>
 
+<script src="config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 const $ = s => document.querySelector(s);
+const APP_URL = (typeof GITHUB_USER === "string" && GITHUB_USER) ? `https://${GITHUB_USER.toLowerCase()}.github.io/${GITHUB_REPO}/` : location.href.split("#")[0];
 const LS_SET = "dryfu_settings", LS_PHOTOS = "dryfu_photos";
 const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
-let settings = load(LS_SET, { provider: "imgbb", imgbbKey: "", cloudName: "", cloudPreset: "" });
+let settings = load(LS_SET, { provider: "cloudinary", imgbbKey: "", cloudName: "", cloudPreset: "" });
 let photos = load(LS_PHOTOS, []);
 
 function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),1800); }
@@ -158,6 +185,12 @@ function isConfigured(){
 }
 $("#provider").addEventListener("change", toggleProvider);
 $("#saveSettings").addEventListener("click", () => {
+  const code = $("#setupCode").value.trim();
+  if (code) {
+    if (applySetupCode(code)) { $("#setupCode").value = ""; fillSettings(); toast("Device jud gaya ✔"); $("#settingsBox").open = false; syncCloud(); }
+    else toast("Setup code sahi nahi hai");
+    return;
+  }
   settings = {
     provider: $("#provider").value,
     imgbbKey: $("#imgbbKey").value.trim(),
@@ -167,6 +200,7 @@ $("#saveSettings").addEventListener("click", () => {
   save(LS_SET, settings);
   toast(isConfigured() ? "Settings save ho gayi ✔" : "Kuch fields khaali hain");
   if (isConfigured()) $("#settingsBox").open = false;
+  updateConn(); syncCloud();
 });
 
 // ---------- upload ----------
@@ -187,13 +221,15 @@ async function uploadOne(file, name){
     fd.append("upload_preset", settings.cloudPreset);
     fd.append("folder", "dryfu");
     fd.append("public_id", name + "-" + Date.now().toString(36));
+    fd.append("tags", "dryfu");
+    fd.append("context", `alt=${name}|category=${($("#category").value.trim()||"").replace(/[|=]/g," ")}`);
     const r = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(settings.cloudName)}/image/upload`, { method:"POST", body:fd });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j?.error?.message || ("Cloudinary error " + r.status));
     // f_auto,q_auto = har browser ko chhota, fast format (webp/avif) milega
     const optimized = j.secure_url.replace("/upload/", "/upload/f_auto,q_auto/");
     const thumb = j.secure_url.replace("/upload/", "/upload/c_fill,w_400,h_400,f_auto,q_auto/");
-    return { url: optimized, thumb, original: j.secure_url, provider:"cloudinary", width:j.width, height:j.height };
+    return { url: optimized, thumb, original: j.secure_url, provider:"cloudinary", publicId: j.public_id, width:j.width, height:j.height };
   }
 }
 
@@ -219,6 +255,7 @@ async function handleFiles(list){
   if (!failed) setStatus(`${done} photo upload ho gayi ✔ Neeche se link copy karein.`, "ok");
   else setStatus(`${done} upload hui, ${failed} fail. Internet ya API key check karein.`, "err");
   $("#photoName").value = "";
+  setTimeout(() => syncCloud(true), 70000);
 }
 
 const drop = $("#drop"), fileInput = $("#fileInput");
@@ -275,6 +312,11 @@ $("#grid").addEventListener("click", e => {
   if (act === "url") copy(p.url, "Link");
   if (act === "html") copy(`<img src="${p.url}" alt="${(p.category ? p.category + " - " : "") + p.name}" loading="lazy"${p.width ? ` width="${p.width}" height="${p.height}"` : ""}>`, "HTML code");
   if (act === "open") window.open(p.url, "_blank", "noopener");
+  if (act === "del" && p.provider === "cloudinary") {
+    toast("Cloudinary photo Media Library se delete karein, phir 🔄 Sync dabayein");
+    window.open("https://console.cloudinary.com/console/media_library", "_blank", "noopener");
+    return;
+  }
   if (act === "del") {
     if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = "Pakka? dobara dabaein"; setTimeout(() => { b.dataset.confirm=""; b.textContent="Hatao"; }, 3000); return; }
     photos = photos.filter(x => x.id !== id); save(LS_PHOTOS, photos); render();
@@ -304,7 +346,75 @@ $("#importFile").addEventListener("change", async e => {
   e.target.value = "";
 });
 
-fillSettings(); render();
+// ---------- sync (Cloudinary = sabhi devices ka common record) ----------
+function setupCode(){ return "DRYFU-" + btoa(JSON.stringify({ c: settings.cloudName, p: settings.cloudPreset })); }
+function applySetupCode(code){
+  try {
+    const o = JSON.parse(atob(decodeURIComponent(code).replace(/^DRYFU-/, "")));
+    if (!o.c || !o.p) return false;
+    settings = { ...settings, provider: "cloudinary", cloudName: o.c, cloudPreset: o.p };
+    save(LS_SET, settings); return true;
+  } catch { return false; }
+}
+function updateConn(msg, cls){
+  const el = $("#connStatus");
+  $("#settingsTitle").textContent = isConfigured() ? "⚙️ Settings (is device par setup ho chuka hai ✔)" : "⚙️ Settings: pehli baar yahan Cloudinary details daalein";
+  if (msg) { el.textContent = msg; el.className = cls || ""; return; }
+  if (!isConfigured()) { el.textContent = "⚠️ Is device par setup baaki hai: Settings bhariye ya dusre device se jodiye"; el.className = "err"; }
+  else if (settings.provider === "imgbb") { el.textContent = "✔ ImgBB connected (sync band: list sirf is device par)"; el.className = "ok"; }
+  else { el.textContent = "✔ Cloudinary connected: " + settings.cloudName; el.className = "ok"; }
+  $("#syncBtn").hidden = $("#shareBtn").hidden = !(isConfigured() && settings.provider === "cloudinary");
+}
+let syncing = false;
+async function syncCloud(quiet){
+  if (syncing || settings.provider !== "cloudinary" || !isConfigured()) return;
+  syncing = true; if (!quiet) updateConn("🔄 Sync ho raha hai…");
+  try {
+    const r = await fetch(`https://res.cloudinary.com/${encodeURIComponent(settings.cloudName)}/image/list/dryfu.json?t=${Date.now()}`, { cache: "no-store" });
+    let list = [];
+    if (r.status === 401 || r.status === 403) throw new Error("list-band");
+    if (r.ok) list = (await r.json()).resources || [];
+    else if (r.status !== 404) throw new Error("HTTP " + r.status);
+    const base = `https://res.cloudinary.com/${settings.cloudName}/image/upload/`;
+    const cloud = list.map(x => {
+      const ctx = x.context?.custom || {};
+      const file = `v${x.version}/${x.public_id}.${x.format}`;
+      return { id: "c:" + x.public_id, publicId: x.public_id, provider: "cloudinary",
+        name: ctx.alt || x.public_id.split("/").pop().replace(/-[a-z0-9]{6,9}$/, ""),
+        category: ctx.category || "", date: x.created_at, width: x.width, height: x.height,
+        url: base + "f_auto,q_auto/" + file, thumb: base + "c_fill,w_400,h_400,f_auto,q_auto/" + file, original: base + file };
+    });
+    const seen = new Set(cloud.map(c => c.publicId));
+    // abhi-abhi upload hui photos Cloudinary list mein ~1 min baad aati hain, tab tak unhe rakhein
+    const recent = photos.filter(p => p.provider === "cloudinary" && p.publicId && !seen.has(p.publicId) && Date.now() - new Date(p.date) < 5*60*1000);
+    const others = photos.filter(p => p.provider !== "cloudinary");
+    photos = [...recent, ...cloud, ...others].sort((a,b) => new Date(b.date) - new Date(a.date));
+    save(LS_PHOTOS, photos); render();
+    updateConn("✔ Cloudinary connected · sync " + new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"}), "ok");
+  } catch (e) {
+    if (e.message === "list-band") updateConn("⚠️ Sync band hai: Cloudinary → Settings → Security → \"Restricted image types\" mein \"Resource list\" ka tick hatayein", "err");
+    else updateConn("⚠️ Sync nahi hua (internet check karein). Purani list dikh rahi hai.", "err");
+  } finally { syncing = false; }
+}
+$("#syncBtn").addEventListener("click", () => syncCloud());
+$("#shareBtn").addEventListener("click", () => {
+  const panel = $("#sharePanel"); panel.hidden = !panel.hidden; if (panel.hidden) return;
+  const link = (location.protocol === "file:" ? APP_URL : location.origin + location.pathname) + "#setup=" + encodeURIComponent(setupCode());
+  $("#shareLink").textContent = link;
+  const q = $("#qr"); q.innerHTML = "";
+  if (window.QRCode) new QRCode(q, { text: link, width: 180, height: 180, correctLevel: QRCode.CorrectLevel.M });
+  else q.hidden = true;
+});
+$("#copyLink").addEventListener("click", () => copy($("#shareLink").textContent, "Link"));
+$("#copyCode").addEventListener("click", () => copy(setupCode(), "Setup code"));
+document.addEventListener("visibilitychange", () => { if (!document.hidden) syncCloud(true); });
+
+// link se aaye to (#setup=...) settings apne aap save
+if (location.hash.startsWith("#setup=")) {
+  if (applySetupCode(location.hash.slice(7))) toast("Device jud gaya ✔");
+  history.replaceState(null, "", location.pathname);
+}
+fillSettings(); updateConn(); render(); syncCloud();
 
 // ---------- app install (PWA) ----------
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
